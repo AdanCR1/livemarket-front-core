@@ -1,12 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "livemarket-front",
-  "main": "./dist/server/entry.mjs",
   "compatibility_date": "2026-10-20",
   "compatibility_flags": [
     "nodejs_compat"
-  ],
-  "assets": {
-    "directory": "./dist/client"
-  }
+  ]
 }
