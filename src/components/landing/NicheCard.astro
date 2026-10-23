@@ -1,0 +1,96 @@
+---
+/**
+ * NicheCard — Tarjeta masiva para la landing page.
+ * Componente Astro (estático). Usa gradientes CSS puros, no imágenes externas.
+ * Gastronomía tiene CTA activo; los demás muestran "Próximamente".
+ */
+
+interface Props {
+  slug: string;
+  label: string;
+  icon: string;
+  emoji: string;
+  tagline: string;
+  description: string;
+  gradient: string;
+  active: boolean;
+  /** Índice para delay de animación escalonada */
+  index: number;
+}
+
+const { slug, label, icon, emoji, tagline, description, gradient, active, index } = Astro.props;
+---
+
+<a
+  href={active ? `/${slug}` : "#"}
+  class:list={[
+    "niche-card group relative flex flex-col justify-end overflow-hidden rounded-3xl border transition-all duration-500",
+    "min-h-[320px] md:min-h-[400px]",
+    active
+      ? "border-theme-primary/20 hover:border-theme-primary/40 hover:scale-[1.02] cursor-pointer"
+      : "border-market-border/30 cursor-default opacity-70 grayscale-[30%]",
+  ]}
+  style={`animation-delay: ${index * 150}ms`}
+>
+  <!-- Fondo con gradiente temático -->
+  <div class:list={["absolute inset-0 bg-gradient-to-br", gradient]} />
+
+  <!-- Patrón decorativo sutil -->
+  <div class="absolute inset-0 opacity-[0.03]"
+    style="background-image: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0); background-size: 40px 40px;"
+  />
+
+  <!-- Emoji decorativo flotante -->
+  <div class="absolute top-6 right-6 text-5xl md:text-7xl opacity-20 group-hover:opacity-30 transition-opacity duration-500 select-none">
+    {emoji}
+  </div>
+
+  <!-- Gradiente inferior para legibilidad del texto -->
+  <div class="absolute inset-0 bg-gradient-to-t from-market-darker via-market-darker/60 to-transparent" />
+
+  <!-- Contenido -->
+  <div class="relative z-10 p-6 md:p-8 space-y-3">
+    <div class="flex items-center gap-2.5">
+      <span class="text-2xl">{icon}</span>
+      <span class="text-xs font-bold tracking-[0.2em] uppercase text-theme-primary-light">
+        {label}
+      </span>
+    </div>
+
+    <h2 class="text-2xl md:text-3xl font-display font-bold text-white leading-tight">
+      {tagline}
+    </h2>
+
+    <p class="text-sm text-market-muted leading-relaxed max-w-sm">
+      {description}
+    </p>
+
+    <!-- CTA -->
+    {active ? (
+      <div class="pt-2">
+        <span class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold
+                     bg-theme-primary text-white shadow-lg shadow-theme-primary/30
+                     group-hover:shadow-xl group-hover:shadow-theme-primary/40
+                     group-hover:brightness-110 transition-all duration-300">
+          Explorar Mercado
+          <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </span>
+      </div>
+    ) : (
+      <div class="pt-2">
+        <span class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold
+                     tracking-widest uppercase bg-market-card/60 text-market-muted border border-market-border/50">
+          Próximamente
+        </span>
+      </div>
+    )}
+  </div>
+</a>
+
+<style>
+  .niche-card {
+    animation: slide-up 0.6s ease-out both;
+  }
+</style>

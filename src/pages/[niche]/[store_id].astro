@@ -1,0 +1,178 @@
+---
+/**
+ * Catálogo de la Tienda
+ * Ruta: /[niche]/[store_id] (ej: /gastronomia/store-001)
+ * SSR: esta página se renderiza dinámicamente porque los store_id son desconocidos en build time.
+ */
+import Layout from "../../layouts/Layout.astro";
+import { StoreCatalog } from "../../components/store/StoreCatalog";
+import { FallbackImage } from "../../components/ui/FallbackImage";
+import { LiveBadge } from "../../components/ui/LiveBadge";
+import { getNicheConfig } from "../../lib/niches";
+import { StoreService } from "../../lib/types/services";
+import { buildMediaUrl } from "../../lib/constants";
+
+// ─── Validar nicho ───
+const { niche, store_id } = Astro.params;
+const nicheConfig = getNicheConfig(niche);
+
+if (!nicheConfig || !store_id) {
+  return Astro.redirect("/404");
+}
+
+// ─── Fetch de datos de la tienda (server-side) ───
+const storeResult = await StoreService.getStoreById(store_id);
+const store = storeResult.data;
+const storeError = storeResult.error;
+
+const storeName = store?.store_name ?? "Tienda";
+const logoUrl = store?.logo_url ? buildMediaUrl(store.logo_url) : undefined;
+---
+
+<Layout
+  title={storeName}
+  description={`Catálogo de productos de ${storeName}. ${nicheConfig.description}`}
+  themeClass={nicheConfig.theme}
+  activeNiche={nicheConfig.slug}
+>
+  <main class="min-h-screen">
+    <!-- Header de la tienda -->
+    <section class="relative overflow-hidden border-b border-market-border/30">
+      <div
+        class="absolute inset-0 bg-gradient-to-br from-theme-primary/5 via-transparent to-transparent pointer-events-none"
+      >
+      </div>
+
+      <div
+        class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12"
+      >
+        <!-- Breadcrumb -->
+        <nav
+          class="flex items-center gap-2 text-sm text-market-muted mb-6 flex-wrap"
+          aria-label="Navegación"
+        >
+          <a
+            href="/"
+            class="hover:text-market-white transition-colors no-underline text-market-muted"
+          >
+            Mercado
+          </a>
+          <svg
+            class="w-3.5 h-3.5 opacity-40 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"></path>
+          </svg>
+          <a
+            href={`/${nicheConfig.slug}`}
+            class="hover:text-market-white transition-colors no-underline text-market-muted"
+          >
+            {nicheConfig.label}
+          </a>
+          <svg
+            class="w-3.5 h-3.5 opacity-40 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="text-theme-primary font-medium truncate"
+            >{storeName}</span
+          >
+        </nav>
+
+        {
+          store ? (
+            <div class="flex items-start gap-5 md:gap-6">
+              {/* Logo de la tienda */}
+              <div class="w-16 h-16 md:w-20 md:h-20 rounded-2xl overflow-hidden border border-market-border/50 bg-market-card shrink-0">
+                <FallbackImage
+                  client:load
+                  src={logoUrl}
+                  alt={`Logo de ${storeName}`}
+                  fallbackName={storeName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Info de la tienda */}
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <h1 class="text-2xl md:text-3xl font-display font-bold text-market-white">
+                    {storeName}
+                  </h1>
+                  {store.is_live && <LiveBadge client:load size="md" />}
+                </div>
+
+                <div class="flex items-center gap-4 mt-2 text-sm text-market-muted flex-wrap">
+                  {/* Ubicación */}
+                  {(store.city_name || store.local_address) && (
+                    <span class="flex items-center gap-1.5">
+                      <svg
+                        class="w-3.5 h-3.5 opacity-60 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                        />
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                      {store.city_name}
+                      {store.department_name
+                        ? `, ${store.department_name}`
+                        : ""}
+                    </span>
+                  )}
+                  {store.local_address && (
+                    <span class="text-market-muted/50 hidden md:inline">
+                      {store.local_address}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div class="flex items-center gap-4">
+              <div class="w-16 h-16 rounded-2xl skeleton-shimmer" />
+              <div class="space-y-2">
+                <div class="h-7 w-48 rounded-lg skeleton-shimmer" />
+                <div class="h-4 w-32 rounded skeleton-shimmer" />
+              </div>
+            </div>
+          )
+        }
+      </div>
+    </section>
+
+    <!-- Catálogo (isla React) -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <StoreCatalog
+        client:load
+        storeId={store_id}
+        storeName={storeName}
+        isLive={store?.is_live ?? false}
+      />
+    </section>
+  </main>
+</Layout>

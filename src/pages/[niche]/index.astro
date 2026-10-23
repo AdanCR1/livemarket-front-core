@@ -1,0 +1,82 @@
+---
+/**
+ * Exploración del Rubro — Grilla de Tiendas
+ * Ruta: /[niche] (ej: /gastronomia)
+ */
+import Layout from "../../layouts/Layout.astro";
+import { StoreGrid } from "../../components/niche/StoreGrid";
+import { getNicheConfig } from "../../lib/niches";
+import { NicheIconRender } from "../../components/niche/NicheIconRender";
+
+const { niche } = Astro.params;
+const nicheConfig = getNicheConfig(niche);
+
+if (!nicheConfig) {
+  return new Response("Nicho no válido", { status: 404 });
+}
+---
+
+<Layout
+  title={nicheConfig.label}
+  description={nicheConfig.description}
+  themeClass={nicheConfig.theme}
+  activeNiche={nicheConfig.slug}
+>
+  <main class="min-h-screen">
+    <!-- Header del nicho -->
+    <section class="relative overflow-hidden border-b border-[var(--theme-primary)]/20 backdrop-blur-md">
+      <!-- Glow superior temático -->
+      <div
+        class="absolute -top-24 left-1/2 -translate-x-1/2 w-[700px] h-[300px] rounded-full blur-[120px] pointer-events-none opacity-20"
+        style="background-color: var(--theme-primary);"
+      ></div>
+
+      <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+        <!-- Breadcrumb -->
+        <nav
+          class="flex items-center gap-2 text-xs md:text-sm text-theme-text-muted mb-6"
+          aria-label="Navegación"
+        >
+          <a
+            href="/"
+            class="hover:text-white transition-colors no-underline text-theme-text-muted"
+          >
+            Mercado
+          </a>
+          <svg class="w-3.5 h-3.5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="text-theme-primary font-medium">{nicheConfig.label}</span>
+        </nav>
+
+        <div class="flex items-center gap-5">
+          <span
+            class="inline-flex items-center justify-center w-16 h-16 rounded-2xl border shadow-lg transition-transform duration-300 hover:scale-105"
+            style="background-color: color-mix(in srgb, var(--theme-primary) 15%, transparent); border-color: color-mix(in srgb, var(--theme-primary) 30%, transparent); color: var(--theme-primary);"
+          >
+            <NicheIconRender
+              Icon={nicheConfig.icon}
+              className="w-8 h-8"
+              client:load
+            />
+          </span>
+          <div>
+            <h1
+              class="text-3xl md:text-5xl font-display font-bold text-white tracking-tight leading-tight"
+            >
+              {nicheConfig.label}
+            </h1>
+            <p class="text-sm md:text-base text-theme-text-muted mt-1 max-w-2xl">
+              {nicheConfig.tagline}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contenido: FilterBar + Grilla de Tiendas (isla React) -->
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <StoreGrid client:load nicheSlug={nicheConfig.slug} />
+    </section>
+  </main>
+</Layout>

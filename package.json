@@ -1,0 +1,29 @@
+{
+  "name": "livemarket-front-core",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "dev:cf": "astro build && wrangler pages dev dist --port 4321",
+    "build": "astro build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "astro build && wrangler pages deploy dist",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.2.1",
+    "@astrojs/react": "^6.0.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "astro": "^7.2.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-icons": "^5.7.0",
+    "tailwindcss": "^4.3.3",
+    "wrangler": "^4.123.0"
+  }
+}

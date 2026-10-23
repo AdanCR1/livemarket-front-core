@@ -1,0 +1,71 @@
+---
+import RegisterB2CForm from "../../components/auth/RegisterB2CForm";
+import "../../styles/global.css";
+---
+
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <title>Crear cuenta — MARKETCLOUD</title>
+        <meta name="description" content="Creá tu cuenta en MARKETCLOUD." />
+    </head>
+
+    <body>
+        <main class="auth-page">
+            <a href="/" class="auth-back-home" aria-label="Volver al inicio">
+                <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M19 12H5"></path>
+                    <path d="m12 19-7-7 7-7"></path>
+                </svg>
+
+                <span>Volver al inicio</span>
+            </a>
+
+            <div class="auth-page__background"></div>
+
+            <div class="auth-page__content">
+                <section
+                    class="auth-panel auth-panel--register"
+                    aria-label="Crear cuenta"
+                >
+                    <header class="auth-header">
+                        <div class="auth-logo" aria-hidden="true">
+                            <svg
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path d="M5 8h14l1 13H4L5 8Z"></path>
+                                <path d="M8 8V6a4 4 0 0 1 8 0v2"></path>
+                            </svg>
+                        </div>
+
+                        <h1 class="auth-title">Creá tu cuenta</h1>
+
+                        <p class="auth-subtitle">
+                            Para comprar en tiendas de todo el mercado.
+                        </p>
+                    </header>
+
+                    <RegisterB2CForm client:load />
+                </section>
+            </div>
+        </main>
+    </body>
+</html>

@@ -1,0 +1,74 @@
+---
+/**
+ * Layout base de MARKETCLOUD.
+ * Inyecta Google Fonts, meta SEO, Navbar global y clase de tema dinámica con fondo fijo.
+ */
+import Navbar from "../components/Navbar.astro";
+import "../styles/global.css";
+import { SITE_NAME, SITE_DESCRIPTION } from "../lib/constants";
+
+interface Props {
+  title?: string;
+  description?: string;
+  themeClass?: string;
+  activeNiche?: string;
+}
+
+const {
+  title,
+  description = SITE_DESCRIPTION,
+  themeClass = "",
+  activeNiche,
+} = Astro.props;
+
+const pageTitle = title ? `${title} — ${SITE_NAME}` : SITE_NAME;
+
+// Si activeNiche existe, asignamos su fondo correspondiente
+const bgImage = activeNiche ? `/img/bg-${activeNiche}.webp` : null;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+
+    <!-- Google Fonts por nicho -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Serif+Display&family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>{pageTitle}</title>
+  </head>
+  <body class={`relative min-h-screen ${themeClass}`}>
+    {/* ── Fondo Inmersivo Fijo con Opacidad Cuidadosa ── */}
+    {bgImage && (
+      <div class="fixed inset-0 pointer-events-none z-[-1] overflow-hidden" aria-hidden="true">
+        {/* Imagen estática */}
+        <img
+          src={bgImage}
+          alt=""
+          class="w-full h-full object-cover object-center opacity-18 filter brightness-75 contrast-125 transition-opacity duration-700"
+          loading="eager"
+        />
+        {/* Filtro degradado con los colores temáticos del nicho */}
+        <div class="absolute inset-0 bg-gradient-to-b from-[var(--theme-surface)]/85 via-[var(--theme-surface)]/95 to-[var(--theme-surface)]"></div>
+        {/* Brillo radial sutil de acento */}
+        <div
+          class="absolute inset-0 opacity-25"
+          style="background: radial-gradient(circle at 50% 10%, var(--theme-primary), transparent 60%);"
+        ></div>
+      </div>
+    )}
+
+    <Navbar activeNiche={activeNiche} />
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,52 @@
+---
+/**
+ * Panel de Negocio B2B (SSR)
+ * Ruta: /panel
+ */
+import "../styles/global.css";
+import "../styles/panel.css";
+import { PanelShell } from "../components/panel/PanelShell";
+import { StoreService } from "../lib/types/services";
+
+const session = Astro.locals.session;
+const token = Astro.locals.token;
+
+if (!session || session.role !== "B2B") {
+  return Astro.redirect("/login");
+}
+
+const storeId = session.store_id;
+const storeResult = await StoreService.getStoreById(storeId);
+const store = storeResult.data;
+
+const niche = session.business_model ?? store?.business_model ?? "otros";
+const storeName = store?.store_name ?? "Mi Tienda";
+const isLive = store?.is_live ?? false;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel B2B — {storeName} | MARKETCLOUD</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="m-0 p-0">
+    <PanelShell
+      client:load
+      storeId={storeId}
+      storeName={storeName}
+      niche={niche}
+      initialIsLive={isLive}
+      userEmail={session.email}
+      token={token}
+    />
+  </body>
+</html>
