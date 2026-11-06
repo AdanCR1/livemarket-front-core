@@ -4,7 +4,7 @@ import { LiveBadge } from "../ui/LiveBadge";
 import { SkeletonLoader } from "../ui/SkeletonLoader";
 import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { InventoryService } from "../../lib/types/services";
-import { createPickupOrder } from "../../lib/commerce/client";
+import { commerceFetch, createPickupOrder } from "../../lib/commerce/client";
 import { PaymentQR } from "./PaymentQR";
 import type { PurchaseOrder } from "../../lib/types/commerce";
 import { buildMediaUrl } from "../../lib/constants";
@@ -42,6 +42,15 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
   const [orderFeedback, setOrderFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [payableOrder, setPayableOrder] = useState<PurchaseOrder | null>(null);
   const [pickupDeadline, setPickupDeadline] = useState("");
+  const [deliveryType,setDeliveryType]=useState<'PICKUP'|'DELIVERY'>('PICKUP');
+  const [deliveryAddress,setDeliveryAddress]=useState('');
+  const [deliveryAvailable,setDeliveryAvailable]=useState(false);
+  useEffect(()=>{
+    const controller=new AbortController();setDeliveryAvailable(false);setDeliveryType('PICKUP');
+    if(buyerAccess==='buyer')commerceFetch<{delivery_available:boolean}>(`/api/checkout?store_id=${storeId}`,{signal:controller.signal})
+      .then(data=>{if(!controller.signal.aborted)setDeliveryAvailable(data.delivery_available===true);}).catch(()=>{});
+    return()=>controller.abort();
+  },[storeId,buyerAccess]);
   const [storeCanSell, setStoreCanSell] = useState<boolean | null>(null);
   const [availabilityFailed, setAvailabilityFailed] = useState(false);
   const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
@@ -157,6 +166,7 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
   function openProductDetail(product: ProductWithMedia) {
     setSelectedProduct(product);
     setOrderQuantity(1);
+    setDeliveryType('PICKUP');setDeliveryAddress('');
     setOrderFeedback(null);
     setRequestKey(crypto.randomUUID());
     const twoDays=new Date(Date.now()+48*60*60*1000);
@@ -167,7 +177,7 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
     e.preventDefault();
     if (!selectedProduct || submittingOrder.current) return;
     if(storeCanSell!==true || buyerAccess !== "buyer"){setOrderFeedback({type:'error',message:'Compra no disponible'});return;}
-    if(!pickupDeadline){setOrderFeedback({type:'error',message:'Selecciona fecha límite de recogida'});return;}
+    if(deliveryType==='PICKUP'&&!pickupDeadline){setOrderFeedback({type:'error',message:'Selecciona fecha límite de recogida'});return;}
     if (!customerName.trim()) {
       setOrderFeedback({ type: "error", message: "Completa tu nombre en el perfil antes de comprar." });
       return;
@@ -179,8 +189,10 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
         customerContact.trim() && `Teléfono: ${customerContact.trim().slice(0,40)}`,
         orderNotes.trim().slice(0,250),
       ].filter(Boolean).join(" · ");
-      const deadlineISO=new Date(pickupDeadline).toISOString();
-      const order = await createPickupOrder(storeId, selectedProduct.id, orderQuantity, notes, requestKey, deadlineISO);
+      const order = deliveryType==='PICKUP'
+        ? await createPickupOrder(storeId,selectedProduct.id,orderQuantity,notes,requestKey,new Date(pickupDeadline).toISOString())
+        : await commerceFetch<PurchaseOrder>('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':requestKey},
+          body:JSON.stringify({store_id:storeId,delivery_type:'DELIVERY',delivery_address:deliveryAddress,items:[{product_id:selectedProduct.id,quantity:orderQuantity}],notes})});
       setPayableOrder(order);
       setOrderFeedback({type:'success',message:'Pedido registrado. Escanea el QR para pagar.'});
       // El inventario se reserva en MS2 por MS4. No descontamos stock localmente.
@@ -328,6 +340,7 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
             availabilityFailed={availabilityFailed}
             retryAvailability={() => setAvailabilityAttempt((attempt) => attempt + 1)}
             pickupDeadline={pickupDeadline}
+            deliveryType={deliveryType} setDeliveryType={setDeliveryType} deliveryAddress={deliveryAddress} setDeliveryAddress={setDeliveryAddress} deliveryAvailable={deliveryAvailable}
             setPickupDeadline={setPickupDeadline}
           />
         )}
@@ -357,6 +370,8 @@ interface ProductDetailModalProps {
   availabilityFailed: boolean;
   retryAvailability: () => void;
   pickupDeadline:string;
+  deliveryType:'PICKUP'|'DELIVERY';setDeliveryType:(value:'PICKUP'|'DELIVERY')=>void;
+  deliveryAddress:string;setDeliveryAddress:(value:string)=>void;deliveryAvailable:boolean;
   setPickupDeadline:(v:string)=>void;
 }
 
@@ -379,6 +394,7 @@ function ProductDetailModal({
   availabilityFailed,
   retryAvailability,
   pickupDeadline,
+  deliveryType,setDeliveryType,deliveryAddress,setDeliveryAddress,deliveryAvailable,
   setPickupDeadline,
 }: ProductDetailModalProps) {
   // Solo consideramos las imágenes que realmente existan y estén cargadas
@@ -572,26 +588,26 @@ function ProductDetailModal({
                 <div>
                   <div className="relative">
                     <FiMapPin className="w-4 h-4 text-market-muted absolute left-3 top-3" />
-                    <input
-                      type="text"
-                      placeholder="Recogida en tienda — envíos no disponibles"
-                      value="Recogida en tienda"
-                      readOnly
-                      disabled
-                      className="w-full bg-market-darker border border-market-border/60 rounded-xl pl-9 pr-4 py-2 text-xs text-market-white placeholder:text-market-muted/50 focus:outline-none focus:border-theme-primary"
-                    />
+                    <select aria-label="Tipo de entrega" value={deliveryType} onChange={event=>setDeliveryType(event.target.value as 'PICKUP'|'DELIVERY')}
+                      className="w-full bg-market-darker border border-market-border/60 rounded-xl pl-9 pr-4 py-2 text-xs text-market-white">
+                      <option value="PICKUP">Recoger en tienda</option>
+                      <option value="DELIVERY" disabled={!deliveryAvailable}>Envío a domicilio{!deliveryAvailable?' — no disponible':''}</option>
+                    </select>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {deliveryType==='DELIVERY'?<label className="block text-xs text-market-muted">Dirección de entrega
+                <textarea required minLength={10} maxLength={500} value={deliveryAddress} onChange={event=>setDeliveryAddress(event.target.value)}
+                  placeholder="Ciudad, calle, número y referencia" className="block w-full rounded-xl bg-market-darker border border-market-border/60 text-market-white p-3 text-sm" />
+              </label>:<div className="space-y-2">
                 <label htmlFor="pickupDeadline" className="block text-xs text-market-muted">Fecha límite de recogida (entre 1 y 7 días)</label>
                 <input id="pickupDeadline" type="datetime-local" required value={pickupDeadline}
                   min={localDateTime(new Date(Math.ceil((Date.now() + 86400000) / 60000) * 60000))}
                   max={localDateTime(new Date(Date.now() + 7 * 86400000))}
                   onChange={e=>setPickupDeadline(e.target.value)}
                   className="w-full rounded-xl bg-market-darker border border-market-border/60 text-market-white p-3 text-sm" />
-              </div>
+              </div>}
               </>}
               {storeCanSell !== true && (
                 <div className="space-y-2 text-xs text-amber-300" role="status">

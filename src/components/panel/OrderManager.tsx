@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {listSales,setMerchantOrderStatus} from '../../lib/commerce/client';
 import {formatBOB,type PurchaseOrder} from '../../lib/types/commerce';
 import { OrderChat } from '../store/OrderChat';
+import {OrderDelivery} from '../delivery/AssignedDeliveries';
 export function OrderManager(){
  const [orders,setOrders]=useState<PurchaseOrder[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(''),[filter,setFilter]=useState('');
  async function refresh(){setLoading(true);try{setOrders(await listSales());setError('')}catch(e){setError(e instanceof Error?e.message:'Error consultando pedidos')}finally{setLoading(false)}}
@@ -19,12 +20,13 @@ export function OrderManager(){
    <div className="flex gap-2 justify-between flex-wrap"><strong>Pedido #{o.id.slice(0,8)}</strong><span className="font-bold text-[var(--panel-accent)]">{formatBOB(o.total)}</span></div>
    <p className="text-xs text-[var(--panel-muted)]">Estado: {o.status} · Pago: {o.payment_status} · {o.delivery_type==='PICKUP'?'Recogida en tienda':'Envío'} · {new Date(o.created_at).toLocaleString('es-BO')}</p>
    {o.notes&&<p className="text-xs text-[var(--panel-muted)] whitespace-pre-wrap">Notas: {o.notes}</p>}
-   {import.meta.env.PUBLIC_MS5_CHAT_ENABLED === 'true' && <OrderChat orderId={o.id} />}
+   <OrderChat orderId={o.id} peerName={(o as PurchaseOrder&{customer_name?:string}).customer_name??'Comprador'} />
+   {o.delivery_type==='DELIVERY'&&o.payment_status==='PAID'&&<OrderDelivery orderId={o.id} merchant ready={o.status==='READY'} />}
    <div className="bg-black/20 p-3 rounded-lg space-y-1">{o.order_items?.map((i,j)=><div key={i.id||j} className="flex justify-between gap-2 text-xs"><span>{i.quantity}× {i.name_snapshot||i.product_name||i.name||i.product_id}</span><span>{formatBOB(i.subtotal??Number(i.unit_price)*i.quantity)}</span></div>)}</div>
-   {o.delivery_type==='PICKUP'&&o.payment_status==='PAID'&&<div className="flex gap-2 justify-end">
+   {o.payment_status==='PAID'&&<div className="flex gap-2 justify-end">
     {o.status==='CONFIRMED'&&<button type="button" disabled={busy===o.id} className="panel-btn-primary px-4 py-2 text-xs" onClick={()=>void transition(o.id,'PREPARING')}>Iniciar preparación</button>}
-    {o.status==='PREPARING'&&<button type="button" disabled={busy===o.id} className="panel-btn-primary px-4 py-2 text-xs" onClick={()=>void transition(o.id,'READY')}>Marcar listo para recoger</button>}
-    {o.status==='READY'&&<span className="text-xs text-emerald-400">Esperando recogida del comprador</span>}
+    {o.status==='PREPARING'&&<button type="button" disabled={busy===o.id} className="panel-btn-primary px-4 py-2 text-xs" onClick={()=>void transition(o.id,'READY')}>{o.delivery_type==='PICKUP'?'Marcar listo para recoger':'Marcar listo para enviar'}</button>}
+    {o.status==='READY'&&o.delivery_type==='PICKUP'&&<span className="text-xs text-emerald-400">Esperando recogida del comprador</span>}
    </div>}
   </article>)}</div>
  </div>

@@ -3,6 +3,7 @@ import { getPurchase, listPurchases } from '../../lib/commerce/client';
 import { formatBOB, type PurchaseOrder } from '../../lib/types/commerce';
 import { PaymentQR } from './PaymentQR';
 import { OrderChat } from './OrderChat';
+import {OrderDelivery} from '../delivery/AssignedDeliveries';
 import { 
   FiShoppingBag, 
   FiClock, 
@@ -179,7 +180,8 @@ export function MyOrders() {
                 ))}
               </div>
 
-              {import.meta.env.PUBLIC_MS5_CHAT_ENABLED === 'true' && <OrderChat orderId={o.id} />}
+              <OrderChat orderId={o.id} peerName={(o as PurchaseOrder&{store_name?:string}).store_name??'Tienda'} />
+              {o.delivery_type==='DELIVERY'&&o.payment_status==='PAID'&&<OrderDelivery orderId={o.id} />}
               {/* Footer con Total y Acciones */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-market-border/40">
                 <div className="flex items-center gap-4 text-xs text-market-muted">
