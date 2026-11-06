@@ -2,7 +2,7 @@
 // Cada función devuelve {data, error} — nunca lanza excepciones.
 // En desarrollo, usa datos mock SOLO para departamentos/ciudades.
 
-import { MS1_URL, MS2_URL, MS3_URL } from "../constants";
+import { MS1_URL, MS2_URL } from "../constants";
 import { MOCK_DEPARTMENTS, MOCK_CITIES } from "../mock-data";
 import type {
   B2BStore,
@@ -175,7 +175,7 @@ export const InventoryService = {
     token?: string
   ): Promise<ServiceResult<ProductWithMedia>> => {
     return safeFetch<ProductWithMedia>(
-      `${MS2_URL}/api/catalog/private/products`,
+      `/api/panel/products`,
       {
         method: "POST",
         body: payload,
@@ -191,7 +191,7 @@ export const InventoryService = {
     token?: string
   ): Promise<ServiceResult<ProductWithMedia>> => {
     return safeFetch<ProductWithMedia>(
-      `${MS2_URL}/api/catalog/private/products/${productId}`,
+      `/api/panel/products/${productId}`,
       { method: "PUT", body: payload, token }
     );
   },
@@ -202,7 +202,7 @@ export const InventoryService = {
     token?: string
   ): Promise<ServiceResult<{ deleted: boolean }>> => {
     return safeFetch<{ deleted: boolean }>(
-      `${MS2_URL}/api/catalog/private/products/${productId}`,
+      `/api/panel/products/${productId}`,
       { method: "DELETE", token }
     );
   },
@@ -217,7 +217,7 @@ export const InventoryService = {
     token?: string
   ): Promise<ServiceResult<unknown[]>> => {
     return safeFetch<unknown[]>(
-      `${MS2_URL}/api/catalog/private/products/${productId}/media`,
+      `/api/panel/products/${productId}/media`,
       { method: "POST", body: media, token }
     );
   },
@@ -229,7 +229,7 @@ export const InventoryService = {
     token?: string
   ): Promise<ServiceResult<{ product_id: string; is_pinned: boolean }>> => {
     return safeFetch<{ product_id: string; is_pinned: boolean }>(
-      `${MS2_URL}/api/catalog/private/live/toggle/${productId}`,
+      `/api/panel/live/toggle/${productId}`,
       { method: "POST", body: { is_pinned: isPinned }, token }
     );
   },
@@ -255,7 +255,7 @@ export const MediaService = {
     formData.append("file", file);
 
     return safeUpload<UploadedMedia>(
-      `${MS3_URL}/upload/product-media`,
+      "/api/panel/product-media",
       formData,
       token
     );
@@ -286,7 +286,17 @@ export const AuthService = {
 
 
 // ─── MS4: Gestión de Pedidos ───
-const MS4_URL = (import.meta.env.PUBLIC_MS4_URL || "http://localhost:8790").replace(/\/+$/, "");
+
+const MS4_URL = (
+  import.meta.env.PUBLIC_MS4_URL ?? ""
+).replace(/\/+$/, "");
+
+if (!MS4_URL) {
+  console.warn(
+    "[MARKETCLOUD] PUBLIC_MS4_URL no configurada"
+  );
+}
+
 
 export interface OrderItem {
   id: string;

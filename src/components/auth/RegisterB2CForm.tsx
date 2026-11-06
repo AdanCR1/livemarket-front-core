@@ -38,18 +38,10 @@ export default function RegisterB2CForm() {
             return;
         }
 
-        const { data: session } = await AuthService.login({
-            email: form.email,
-            password: form.password,
+        const result = await establishSession({
+          email: form.email,
+          password: form.password,
         });
-
-        if (!session) {
-            setSuccess(true);
-            setLoading(false);
-            return;
-        }
-
-        const result = await establishSession(session);
         setLoading(false);
 
         if (!result.ok) {

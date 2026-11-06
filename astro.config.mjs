@@ -8,15 +8,32 @@ import cloudflare from "@astrojs/cloudflare";
 export default defineConfig({
   output: "server",
   adapter: cloudflare({
-    imageService: "passthrough",
+    imageService: "compile",
+    prerenderEnvironment: "workerd",
   }),
   integrations: [react()],
   vite: {
-    plugins: [tailwindcss()],
-    server: {
-      watch: {
-        ignored: ["**/.wrangler/**"],
-      },
+  plugins: [tailwindcss()],
+  ssr: {
+    // Fuerza la inclusión de los módulos que están fallando
+    optimizeDeps: {
+      include: [
+        "astro/app/manifest",
+        "astro/assets/image-asset", // Añade el módulo específico de tu error
+        "@astrojs/cloudflare/cache/provider",
+      ],
     },
   },
+  // Puedes mantener el resto de tu configuración (optimizeDeps, server, etc.)
+  // pero elimina "astro" de optimizeDeps.exclude
+  optimizeDeps: {
+    exclude: ["@astrojs/cloudflare"], // Ya no excluyas "astro"
+    include: ["react", "react-dom", "react-icons"],
+  },
+  server: {
+    watch: {
+      ignored: ["**/.wrangler/**"],
+    },
+  },
+}
 });

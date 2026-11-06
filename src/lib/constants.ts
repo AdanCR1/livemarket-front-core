@@ -1,16 +1,23 @@
 // ─── Constantes globales y variables de entorno ───
 
 /** MS1: Auth, Perfiles, Tiendas, Departamentos, Ciudades */
-export const MS1_URL = (import.meta.env.PUBLIC_MS1_URL || "http://localhost:8787").replace(/\/$/, "");
+export const MS1_URL = (import.meta.env.PUBLIC_MS1_URL || (import.meta.env.DEV ? "http://127.0.0.1:8789" : "")).replace(/\/$/, "");
 
 /** MS2: Inventario, Productos, Live Sessions */
-export const MS2_URL = (import.meta.env.PUBLIC_MS2_URL || "http://localhost:8788").replace(/\/$/, "");
+export const MS2_URL = (import.meta.env.PUBLIC_MS2_URL || (import.meta.env.DEV ? "http://127.0.0.1:8791" : "")).replace(/\/$/, "");
 
-export const MS3_URL = (import.meta.env.PUBLIC_MS3_URL || "http://localhost:8789")
+export const MS3_URL = (import.meta.env.PUBLIC_MS3_URL || "")
   .replace(/\/$/, "")
   .replace(/\/media$/, "");
 
-export const MS4_URL = (import.meta.env.PUBLIC_MS4_URL || "http://localhost:8790").replace(/\/$/, "");
+export const MS4_URL = (import.meta.env.PUBLIC_MS4_URL || (import.meta.env.DEV ? "http://127.0.0.1:8788" : "")).replace(/\/$/, "");
+
+// En src/lib/constants.ts
+export const PUBLIC_MS1_URL = MS1_URL;
+export const PUBLIC_MS2_URL = MS2_URL;
+export const PUBLIC_MS3_URL = MS3_URL;
+export const PUBLIC_MS4_URL = MS4_URL;
+export const PUBLIC_MS6_URL = import.meta.env.PUBLIC_MS6_URL || (import.meta.env.DEV ? "http://127.0.0.1:8787" : "");
 
 /** Alias heredado — apunta al mismo Worker que MS3 (mantener por compatibilidad) */
 export const MS_MEDIA_URL = MS3_URL;

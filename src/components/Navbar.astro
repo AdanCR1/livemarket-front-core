@@ -21,6 +21,12 @@ interface Props {
 
 const { activeNiche } = Astro.props;
 const nicheEntries = Object.values(NICHES);
+// Lectura de sesión desde middleware existente; solo para navegación visual.
+const session=Astro.locals.session as {role?:string;exp?:number}|null;
+const exp=typeof session?.exp === 'number' ? session.exp : null;
+const accountActive=!!session && (exp===null || exp*1000>Date.now());
+const accountHref=accountActive?(session.role==='B2B'?'/panel':session.role==='DRIVER'?'/mis-envios':'/perfil'):'/login';
+const accountLabel=accountActive?'Mi cuenta':'Iniciar sesión';
 ---
 
 <header
@@ -83,12 +89,12 @@ const nicheEntries = Object.values(NICHES);
         <!-- Acciones de cuenta (desktop) -->
         <div class="hidden md:flex items-center gap-2">
           <a
-            href="/login"
+            href={accountHref}
             class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all no-underline text-market-muted hover:text-market-white hover:bg-market-card"
             aria-label="Iniciar sesión o crear cuenta"
           >
             <FiUser className="w-5 h-5" />
-            <span class="hidden lg:inline">Mi cuenta</span>
+            <span class="hidden lg:inline">{accountLabel}</span>
           </a>
         </div>
 
@@ -180,7 +186,7 @@ const nicheEntries = Object.values(NICHES);
                     <NicheIcon className="w-4 h-4" />
                   </span>
                   {niche.label}
-                  <FiChevronDown class="ml-auto w-4 h-4 transition-transform group-open:rotate-180" />
+                  <FiChevronDown className="ml-auto w-4 h-4 transition-transform group-open:rotate-180" />
                 </summary>
                 <div class="pl-6 pr-2 py-2 space-y-1 border-l border-market-border/50 ml-4">
                   {niche.megaMenu.map((column) => (
@@ -233,11 +239,11 @@ const nicheEntries = Object.values(NICHES);
     <!-- Acciones de cuenta en mobile -->
     <div class="px-4 py-4 border-t border-market-border/50">
       <a
-        href="/login"
+        href={accountHref}
         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-market-muted hover:text-market-white hover:bg-market-card no-underline transition-colors"
       >
         <FiUser className="w-5 h-5" />
-        Mi cuenta
+        {accountLabel}
       </a>
     </div>
   </div>
@@ -249,6 +255,7 @@ const nicheEntries = Object.values(NICHES);
   const menu = document.getElementById("mobile-menu");
 
   btn?.addEventListener("click", () => {
+    if (!menu) return;
     const isOpen = !menu.classList.contains("hidden");
     menu.classList.toggle("hidden");
     btn.setAttribute("aria-expanded", String(!isOpen));
@@ -257,7 +264,7 @@ const nicheEntries = Object.values(NICHES);
   // Mega menús desktop
   const wrappers = document.querySelectorAll("[data-mega-wrapper]");
   const panels = Array.from(document.querySelectorAll("[data-mega-panel]"));
-  let hideTimeout;
+  let hideTimeout: ReturnType<typeof setTimeout> | undefined;
 
   function hideAllPanels() {
     panels.forEach((panel) => panel.classList.add("hidden"));
@@ -296,10 +303,8 @@ const nicheEntries = Object.values(NICHES);
     trigger.addEventListener("focus", show);
 
     wrapper.addEventListener("focusout", (event) => {
-      if (
-        !wrapper.contains(event.relatedTarget) &&
-        !panel.contains(event.relatedTarget)
-      ) {
+      const target = event instanceof FocusEvent ? event.relatedTarget : null;
+      if (!(target instanceof Node) || (!wrapper.contains(target) && !panel.contains(target))) {
         scheduleHide();
       }
     });

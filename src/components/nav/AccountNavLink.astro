@@ -1,0 +1,9 @@
+---
+// Se monta en Navbar.astro (SSR) para que lea cookie httpOnly sin JS adicional.
+const session=Astro.locals.session;
+const expires=Astro.locals.token ? (()=>{try{const s=Astro.locals.token.split('.')[1];const b=s.replace(/-/g,'+').replace(/_/g,'/');const p=JSON.parse(atob(b));return typeof p.exp==='number' && p.exp*1000>Date.now()}catch{return false}})() : false;
+const active=!!session&&expires;
+const href=active?(session.role==='B2B'?'/panel':session.role==='DRIVER'?'/mis-envios':'/perfil'):'/login';
+const label=active?'Mi cuenta':'Iniciar sesión';
+---
+<a href={href} class="inline-flex items-center gap-2 text-sm font-semibold text-market-white hover:text-theme-primary transition-colors">{label}</a>

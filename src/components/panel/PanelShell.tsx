@@ -5,6 +5,7 @@ import {
   FiCheckCircle,
   FiAlertTriangle,
   FiXCircle,
+  FiUsers,
 } from "react-icons/fi";
 import { ThemeProvider } from "./ThemeProvider";
 import { PanelOverview } from "./PanelOverview";
@@ -14,6 +15,8 @@ import { LiveManager } from "./LiveManager";
 import { getPanelTheme } from "../../lib/panel-themes";
 import { InventoryService, MediaService } from "../../lib/types/services";
 import { OrderManager } from "./OrderManager";
+import { DriverManager } from "./DriverManager";
+import { AccountSettings } from "../account/AccountSettings";
 import { FiClipboard } from "react-icons/fi";
 import type {
   ProductWithMedia,
@@ -27,10 +30,9 @@ export interface PanelShellProps {
   niche: string;
   initialIsLive?: boolean;
   userEmail?: string;
-  token?: string | null;
 }
 
-type PanelSection = "overview" | "products" | "product-form" | "live" | "orders" | "settings";
+type PanelSection = "overview" | "products" | "product-form" | "live" | "orders" | "drivers" | "settings";
 
 interface FeedbackNotice {
   type: "success" | "error" | "warning";
@@ -44,7 +46,6 @@ export function PanelShell({
   niche,
   initialIsLive = false,
   userEmail,
-  token,
 }: PanelShellProps) {
   const theme = getPanelTheme(niche);
   const NicheIcon = theme.icon;
@@ -58,7 +59,6 @@ export function PanelShell({
   const [isLive, setIsLive] = useState(initialIsLive);
   const [loading, setLoading] = useState(true);
 
-  // Estado para Modales / Alertas de Éxito y Error
   const [feedback, setFeedback] = useState<FeedbackNotice | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
 
@@ -70,7 +70,6 @@ export function PanelShell({
     setSidebarOpen(false);
   }, [activeSection]);
 
-  // Auto-cerrar notificaciones de éxito después de 5 segundos
   useEffect(() => {
     if (!feedback || feedback.type === "error") return;
     const timer = setTimeout(() => setFeedback(null), 5000);
@@ -95,7 +94,6 @@ export function PanelShell({
     }
 
     if (liveRes.error) {
-      // El live es secundario: no bloquea la UI, pero avisamos.
       console.warn(`[PanelShell] Live no disponible: ${liveRes.error}`);
       setPinnedProducts([]);
     } else {
@@ -104,6 +102,7 @@ export function PanelShell({
 
     setLoading(false);
   }
+
   async function handleSaveProduct(
     payload: CreateProductPayload,
     mediaSlots: MediaSlotInput[]
@@ -112,13 +111,11 @@ export function PanelShell({
     let mediaWarning: string | null = null;
     const isEditing = !!editingProduct;
 
-    // ─── Paso 1: crear o actualizar el producto ───
     if (editingProduct) {
       const res = await InventoryService.updateProduct(
         storeId,
         editingProduct.id,
-        payload,
-        token ?? undefined
+        payload
       );
       if (res.error || !res.data) {
         setFeedback({
@@ -130,7 +127,7 @@ export function PanelShell({
       }
       targetProduct = { ...editingProduct, ...res.data };
     } else {
-      const res = await InventoryService.createProduct(payload, token ?? undefined);
+      const res = await InventoryService.createProduct(payload);
       if (res.error || !res.data) {
         setFeedback({
           type: "error",
@@ -142,14 +139,12 @@ export function PanelShell({
       targetProduct = res.data;
     }
 
-    // ─── Paso 2: procesar media (subir nuevos a MS3, mantener existentes) ───
     if (mediaSlots.length > 0 && targetProduct) {
       const mediaRows: Array<{ order: number; url: string; media_type: "image" | "video" }> = [];
 
       for (const slot of mediaSlots) {
         if (slot.file) {
-          // Subir nueva imagen a MS3
-          const uploadRes = await MediaService.uploadProductFile(slot.file, token ?? undefined);
+          const uploadRes = await MediaService.uploadProductFile(slot.file);
           if (uploadRes.error || !uploadRes.data) {
             mediaWarning = uploadRes.error ?? `No se pudo subir la imagen del slot ${slot.order}.`;
             continue;
@@ -160,7 +155,6 @@ export function PanelShell({
             media_type: uploadRes.data.media_type,
           });
         } else if (slot.existingUrl) {
-          // Mantener la URL existente (sin subir nada)
           mediaRows.push({
             order: slot.order,
             url: slot.existingUrl,
@@ -172,8 +166,7 @@ export function PanelShell({
       if (mediaRows.length > 0) {
         const attachRes = await InventoryService.attachProductMedia(
           targetProduct.id,
-          mediaRows,
-          token ?? undefined
+          mediaRows
         );
         if (!attachRes.error && attachRes.data) {
           targetProduct = {
@@ -186,7 +179,6 @@ export function PanelShell({
       }
     }
 
-    // ─── Paso 3: actualizar estado local ───
     if (isEditing) {
       const finalProduct = targetProduct!;
       setProducts((prev) => prev.map((p) => (p.id === finalProduct.id ? finalProduct : p)));
@@ -194,7 +186,6 @@ export function PanelShell({
       setProducts((prev) => [targetProduct!, ...prev]);
     }
 
-    // ─── Paso 4: feedback ───
     if (mediaWarning) {
       setFeedback({
         type: "warning",
@@ -220,7 +211,7 @@ export function PanelShell({
     const targetId = productToDelete;
     setProductToDelete(null);
 
-    const res = await InventoryService.deleteProduct(storeId, targetId, token ?? undefined);
+    const res = await InventoryService.deleteProduct(storeId, targetId);
     if (res.error) {
       setFeedback({
         type: "error",
@@ -244,8 +235,7 @@ export function PanelShell({
     const res = await InventoryService.togglePinLiveProduct(
       storeId,
       product.id,
-      !exists,
-      token ?? undefined
+      !exists
     );
 
     if (res.error) {
@@ -283,6 +273,7 @@ export function PanelShell({
     { id: "overview", label: "Resumen", icon: theme.icons.dashboard },
     { id: "products", label: "Productos", icon: theme.icons.products },
     { id: "orders", label: "Pedidos", icon: FiClipboard },
+    { id: "drivers", label: "Repartidores", icon: FiUsers },
     { id: "live", label: "Modo Live", icon: theme.icons.live },
     { id: "settings", label: "Configuración", icon: theme.icons.settings },
   ];
@@ -292,6 +283,7 @@ export function PanelShell({
     products: "Mis Productos",
     "product-form": editingProduct ? "Editar producto" : "Nuevo producto",
     orders: "Gestión de Pedidos",
+    drivers: "Flota de Repartidores",
     live: "Transmisión en vivo",
     settings: "Configuración de tienda",
   };
@@ -311,33 +303,24 @@ export function PanelShell({
   return (
     <ThemeProvider niche={niche}>
       <div className="min-h-screen flex flex-col">
-        {/* ═══════ BANNER / MODAL FLOTANTE DE ÉXITO O ERROR ═══════ */}
         {feedback && (
           <div className="fixed bottom-5 right-5 z-50 max-w-md w-[calc(100%-2.5rem)] animate-slide-up">
             <div
               className={`p-4 rounded-xl border shadow-2xl backdrop-blur-md flex items-start gap-3.5 ${feedback.type === "success"
-                ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-100"
-                : feedback.type === "warning"
-                  ? "bg-amber-950/90 border-amber-500/40 text-amber-100"
-                  : "bg-red-950/90 border-red-500/40 text-red-100"
+                  ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-100"
+                  : feedback.type === "warning"
+                    ? "bg-amber-950/90 border-amber-500/40 text-amber-100"
+                    : "bg-red-950/90 border-red-500/40 text-red-100"
                 }`}
             >
               <div className="mt-0.5 shrink-0">
-                {feedback.type === "success" && (
-                  <FiCheckCircle className="w-5 h-5 text-emerald-400" />
-                )}
-                {feedback.type === "warning" && (
-                  <FiAlertTriangle className="w-5 h-5 text-amber-400" />
-                )}
-                {feedback.type === "error" && (
-                  <FiXCircle className="w-5 h-5 text-red-400" />
-                )}
+                {feedback.type === "success" && <FiCheckCircle className="w-5 h-5 text-emerald-400" />}
+                {feedback.type === "warning" && <FiAlertTriangle className="w-5 h-5 text-amber-400" />}
+                {feedback.type === "error" && <FiXCircle className="w-5 h-5 text-red-400" />}
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-bold">{feedback.title}</h4>
-                <p className="text-xs opacity-90 mt-1 leading-relaxed break-words">
-                  {feedback.message}
-                </p>
+                <p className="text-xs opacity-90 mt-1 leading-relaxed break-words">{feedback.message}</p>
               </div>
               <button
                 type="button"
@@ -350,15 +333,12 @@ export function PanelShell({
           </div>
         )}
 
-        {/* ═══════ MODAL DE CONFIRMACIÓN PARA ELIMINAR PRODUCTO ═══════ */}
         {productToDelete && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
             <div className="panel-card max-w-sm w-full p-6 space-y-4 border border-red-500/30">
               <div className="flex items-center gap-3 text-red-400">
                 <FiAlertTriangle className="w-6 h-6 shrink-0" />
-                <h3 className="text-base font-bold text-[var(--panel-text)]">
-                  ¿Eliminar este producto?
-                </h3>
+                <h3 className="text-base font-bold text-[var(--panel-text)]">¿Eliminar este producto?</h3>
               </div>
               <p className="text-xs text-[var(--panel-muted)] leading-relaxed">
                 Esta acción eliminará el producto de tu catálogo en MS2 de forma permanente.
@@ -383,15 +363,12 @@ export function PanelShell({
           </div>
         )}
 
-        {/* ═══════ HEADER ═══════ */}
         <header className="panel-header h-16 px-4 lg:px-6 sticky top-0 z-30 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() =>
-                isMobile
-                  ? setSidebarOpen(!sidebarOpen)
-                  : setSidebarCollapsed(!sidebarCollapsed)
+                isMobile ? setSidebarOpen(!sidebarOpen) : setSidebarCollapsed(!sidebarCollapsed)
               }
               aria-label="Alternar menú lateral"
               className="p-2 rounded-lg border border-[var(--panel-border)] hover:border-[var(--panel-primary)] text-[var(--panel-muted)] hover:text-[var(--panel-text)] transition-colors"
@@ -399,9 +376,16 @@ export function PanelShell({
               {sidebarOpen ? <FiX className="w-5 h-5" /> : <FiMenu className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-2.5">
+            {/* POR ESTE: Clickable tanto en móvil como en escritorio */}
+            <a
+              href={`/${niche}/${storeId}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Abrir tienda en una pestaña nueva"
+              className="flex items-center gap-2.5 p-1.5 -ml-1 rounded-xl hover:bg-white/5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center"
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 group-hover:ring-2 ring-[var(--panel-primary)] transition-all"
                 style={{
                   background: `linear-gradient(135deg, ${theme.primaryColor}25, ${theme.accentColor}15)`,
                   color: theme.primaryColor,
@@ -409,9 +393,9 @@ export function PanelShell({
               >
                 <NicheIcon className="w-5 h-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-base panel-font-display tracking-tight store-name truncate max-w-[150px] lg:max-w-none">
+                  <span className="font-bold text-base panel-font-display tracking-tight store-name truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none group-hover:text-[var(--panel-primary)] transition-colors">
                     {storeName}
                   </span>
                   <span
@@ -421,12 +405,14 @@ export function PanelShell({
                       color: theme.accentColor,
                     }}
                   >
-                    <NicheIcon className="w-3 h-3" />
+                    <NicheIcon className="w-3.5 h-3.5" />
                     {theme.label}
                   </span>
+                  {/* Icono externo visible solo en pantallas pequeñas */}
+                  <theme.icons.external className="w-3.5 h-3.5 text-[var(--panel-muted)] group-hover:text-[var(--panel-primary)] sm:hidden shrink-0" />
                 </div>
               </div>
-            </div>
+            </a>
           </div>
 
           <div className="flex items-center gap-2 header-actions">
@@ -474,7 +460,6 @@ export function PanelShell({
           </div>
         </header>
 
-        {/* ═══════ CUERPO ═══════ */}
         <div className="flex-1 flex relative">
           {sidebarOpen && (
             <div
@@ -514,10 +499,7 @@ export function PanelShell({
 
             {!sidebarCollapsed && (
               <div className="p-4 m-3 rounded-xl bg-black/20 border border-[var(--panel-border)] text-xs space-y-2 sidebar-badge">
-                <div
-                  className="font-semibold flex items-center gap-2"
-                  style={{ color: theme.accentColor }}
-                >
+                <div className="font-semibold flex items-center gap-2" style={{ color: theme.accentColor }}>
                   <NicheIcon className="w-4 h-4" />
                   <span>Panel {theme.label}</span>
                 </div>
@@ -528,10 +510,8 @@ export function PanelShell({
             )}
           </aside>
 
-          {/* Contenido Principal */}
           <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto panel-main">
             <div className="max-w-6xl mx-auto">
-              {/* Breadcrumbs (solo navegación) */}
               <nav className="flex items-center gap-2 text-xs text-[var(--panel-muted)] mb-6 breadcrumbs">
                 <span>Panel B2B</span>
                 <span>/</span>
@@ -583,9 +563,9 @@ export function PanelShell({
                     />
                   )}
 
-                  {activeSection === "orders" && (
-                    <OrderManager token={token} />
-                  )}
+                  {activeSection === "orders" && <OrderManager />}
+
+                  {activeSection === "drivers" && <DriverManager />}
 
                   {activeSection === "product-form" && (
                     <ProductForm
@@ -602,6 +582,7 @@ export function PanelShell({
 
                   {activeSection === "live" && (
                     <LiveManager
+                      niche={niche}
                       storeName={storeName}
                       isLive={isLive}
                       allProducts={products}
@@ -611,11 +592,7 @@ export function PanelShell({
                     />
                   )}
 
-                  {activeSection === "settings" && (
-                    <div className="panel-card p-6 space-y-4 max-w-xl animate-fade-in">
-                      {/* Configuración */}
-                    </div>
-                  )}
+                  {activeSection === "settings" && <AccountSettings variant="merchant" />}
                 </>
               )}
             </div>

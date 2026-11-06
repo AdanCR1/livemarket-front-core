@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import {MyOrders} from '../components/store/MyOrders';
+export const prerender = false;
+const session=Astro.locals.session;
+if(!session)return Astro.redirect('/login?next=%2Fmis-pedidos');
+if(session.role==='DRIVER')return Astro.redirect('/mis-envios');
+---
+<Layout title="Mis pedidos" description="Historial y seguimiento de compras en MarketCloud">
+  <main class="min-h-screen"><MyOrders client:load /></main>
+</Layout>

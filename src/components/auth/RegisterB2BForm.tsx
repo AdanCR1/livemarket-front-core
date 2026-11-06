@@ -23,8 +23,9 @@ import type { RegisterB2BPayload, NicheSlug } from "../../lib/types/types";
 const NICHE_LABELS: Record<NicheSlug, string> = {
   gastronomia: "Gastronomía",
   tecnologia: "Tecnología",
-  moda: "Moda",
-  servicios: "Servicios",
+  ropa: "Ropa",
+  jugueteria: "Juguetería",
+  otros: "Otros",
 };
 
 interface FormState {
@@ -232,18 +233,10 @@ export default function RegisterB2BForm() {
       }
 
       // 3. Iniciar sesión tras registro exitoso
-      const { data: session } = await AuthService.login({
+      const result = await establishSession({
         email: form.email,
         password: form.password,
       });
-
-      if (!session) {
-        setSuccess(true);
-        setLoading(false);
-        return;
-      }
-
-      const result = await establishSession(session);
       setLoading(false);
 
       if (!result.ok) {

@@ -12,15 +12,26 @@ import { getNicheConfig } from "../../lib/niches";
 import { StoreService } from "../../lib/types/services";
 import { buildMediaUrl } from "../../lib/constants";
 
-// ─── Validar nicho ───
 const { niche, store_id } = Astro.params;
-const nicheConfig = getNicheConfig(niche);
+const session = Astro.locals.session;
+const buyerAccess = !session ? "guest"
+  : session.role === "B2B" && session.store_id === store_id ? "owner"
+  : session.role === "B2C" || session.role === "B2B" ? "buyer"
+  : "restricted";
 
+// 1. Descartar de inmediato si es una ruta del sistema
+const RESERVED = ["panel", "perfil", "login", "registro", "api"];
+if (niche && RESERVED.includes(niche)) {
+  return new Response(null, { status: 404 });
+}
+
+// 2. Validar nicho
+const nicheConfig = getNicheConfig(niche);
 if (!nicheConfig || !store_id) {
   return Astro.redirect("/404");
 }
 
-// ─── Fetch de datos de la tienda (server-side) ───
+// 3. Fetch de datos de la tienda (server-side)
 const storeResult = await StoreService.getStoreById(store_id);
 const store = storeResult.data;
 const storeError = storeResult.error;
@@ -170,6 +181,8 @@ const logoUrl = store?.logo_url ? buildMediaUrl(store.logo_url) : undefined;
       <StoreCatalog
         client:load
         storeId={store_id}
+        buyerAccess={buyerAccess}
+        loginUrl={`/login?next=${encodeURIComponent(Astro.url.pathname)}`}
         storeName={storeName}
         isLive={store?.is_live ?? false}
       />

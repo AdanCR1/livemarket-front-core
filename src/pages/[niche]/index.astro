@@ -9,6 +9,13 @@ import { getNicheConfig } from "../../lib/niches";
 import { NicheIconRender } from "../../components/niche/NicheIconRender";
 
 const { niche } = Astro.params;
+
+// Si coincide con alguna página raíz, delegar inmediatamente
+const RESERVED = ["panel", "perfil", "login", "registro", "api", "tets"];
+if (niche && RESERVED.includes(niche)) {
+  return Astro.rewrite(`/${niche}`);
+}
+
 const nicheConfig = getNicheConfig(niche);
 
 if (!nicheConfig) {

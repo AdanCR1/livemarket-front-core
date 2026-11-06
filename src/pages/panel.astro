@@ -3,13 +3,13 @@
  * Panel de Negocio B2B (SSR)
  * Ruta: /panel
  */
+export const prerender = false;
 import "../styles/global.css";
 import "../styles/panel.css";
 import { PanelShell } from "../components/panel/PanelShell";
 import { StoreService } from "../lib/types/services";
 
 const session = Astro.locals.session;
-const token = Astro.locals.token;
 
 if (!session || session.role !== "B2B") {
   return Astro.redirect("/login");
@@ -46,7 +46,6 @@ const isLive = store?.is_live ?? false;
       niche={niche}
       initialIsLive={isLive}
       userEmail={session.email}
-      token={token}
     />
   </body>
 </html>

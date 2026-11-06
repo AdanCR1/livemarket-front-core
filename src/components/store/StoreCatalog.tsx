@@ -1,9 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { FallbackImage } from "../ui/FallbackImage";
 import { LiveBadge } from "../ui/LiveBadge";
 import { SkeletonLoader } from "../ui/SkeletonLoader";
 import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { InventoryService } from "../../lib/types/services";
+import { createPickupOrder } from "../../lib/commerce/client";
+import { PaymentQR } from "./PaymentQR";
+import type { PurchaseOrder } from "../../lib/types/commerce";
 import { buildMediaUrl } from "../../lib/constants";
 import type { ProductWithMedia } from "../../lib/types/types";
 import { FiX, FiCheck, FiShoppingBag, FiMapPin, FiPhone, FiUser } from "react-icons/fi";
@@ -12,11 +15,17 @@ interface StoreCatalogProps {
   storeId: string;
   storeName: string;
   isLive: boolean;
+  buyerAccess: "guest" | "buyer" | "owner" | "restricted";
+  loginUrl: string;
+}
+
+function localDateTime(date: Date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
 type SortOption = "recent" | "price-asc" | "price-desc" | "name";
 
-export function StoreCatalog({ storeId, storeName, isLive }: StoreCatalogProps) {
+export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl }: StoreCatalogProps) {
   const [liveProducts, setLiveProducts] = useState<ProductWithMedia[]>([]);
   const [allProducts, setAllProducts] = useState<ProductWithMedia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,10 +36,16 @@ export function StoreCatalog({ storeId, storeName, isLive }: StoreCatalogProps) 
   const [orderQuantity, setOrderQuantity] = useState(1);
   const [customerName, setCustomerName] = useState("");
   const [customerContact, setCustomerContact] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const submittingOrder = useRef(false);
   const [orderFeedback, setOrderFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [payableOrder, setPayableOrder] = useState<PurchaseOrder | null>(null);
+  const [pickupDeadline, setPickupDeadline] = useState("");
+  const [storeCanSell, setStoreCanSell] = useState<boolean | null>(null);
+  const [availabilityFailed, setAvailabilityFailed] = useState(false);
+  const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
+  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
 
   // Filtros
   const [sortBy, setSortBy] = useState<SortOption>("recent");
@@ -38,8 +53,40 @@ export function StoreCatalog({ storeId, storeName, isLive }: StoreCatalogProps) 
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
+    if (buyerAccess !== "buyer") return;
+    const controller = new AbortController();
+    fetch('/api/profile/name', {credentials:'same-origin', cache:'no-store', signal:controller.signal})
+      .then(async res => {if (!res.ok) return null; const data = await res.json(); return data?.success ? data.data : null;})
+      .then(p => {if (!controller.signal.aborted && p?.full_name) setCustomerName(p.full_name);})
+      .catch(() => {});
+    return () => controller.abort();
+  }, [buyerAccess]);
+
+  useEffect(() => {
     loadCatalog();
-  }, [storeId]);
+  }, [storeId, isLive]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStoreCanSell(null);
+    setAvailabilityFailed(false);
+    fetch(`/api/stores/${encodeURIComponent(storeId)}`, {
+      cache: "no-store",
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]),
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        const allowed = result?.data?.can_accept_orders;
+        if (!response.ok || result?.success !== true || typeof allowed !== "boolean") {
+          throw new Error("Disponibilidad no verificable");
+        }
+        if (!controller.signal.aborted) setStoreCanSell(allowed);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailabilityFailed(true);
+      });
+    return () => controller.abort();
+  }, [storeId, availabilityAttempt]);
 
   async function loadCatalog() {
     setLoading(true);
@@ -111,66 +158,36 @@ export function StoreCatalog({ storeId, storeName, isLive }: StoreCatalogProps) 
     setSelectedProduct(product);
     setOrderQuantity(1);
     setOrderFeedback(null);
+    setRequestKey(crypto.randomUUID());
+    const twoDays=new Date(Date.now()+48*60*60*1000);
+    setPickupDeadline(localDateTime(twoDays));
   }
 
   async function handleCreateOrder(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedProduct) return;
-
-    if (!customerName.trim() || !customerContact.trim()) {
-      setOrderFeedback({ type: "error", message: "Ingresa tu nombre y WhatsApp para coordinar la entrega." });
+    if (!selectedProduct || submittingOrder.current) return;
+    if(storeCanSell!==true || buyerAccess !== "buyer"){setOrderFeedback({type:'error',message:'Compra no disponible'});return;}
+    if(!pickupDeadline){setOrderFeedback({type:'error',message:'Selecciona fecha límite de recogida'});return;}
+    if (!customerName.trim()) {
+      setOrderFeedback({ type: "error", message: "Completa tu nombre en el perfil antes de comprar." });
       return;
     }
-
-    setIsSubmittingOrder(true);
-    setOrderFeedback(null);
-
+    submittingOrder.current = true;
+    setIsSubmittingOrder(true); setOrderFeedback(null);
     try {
-      const payload = {
-        store_id: storeId,
-        customer_name: customerName.trim(),
-        customer_contact: customerContact.trim(),
-        delivery_address: deliveryAddress.trim() || "Recojo en local / Por acordar",
-        is_live_order: isLive,
-        notes: orderNotes.trim() || undefined,
-        items: [
-          {
-            product_id: selectedProduct.id,
-            product_name: selectedProduct.name,
-            unit_price: selectedProduct.price,
-            quantity: orderQuantity,
-          },
-        ],
-      };
-
-      const response = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const resData = await response.json();
-
-      if (!response.ok || !resData.success) {
-        throw new Error(resData.error ?? "No se pudo completar la reserva.");
-      }
-
-      setOrderFeedback({
-        type: "success",
-        message: "¡Pedido reservado con éxito! El negocio se pondrá en contacto por WhatsApp para confirmar.",
-      });
-
-      // Actualizar el stock del producto localmente
-      setSelectedProduct((prev) => (prev ? { ...prev, stock: prev.stock - orderQuantity } : null));
-      setAllProducts((prev) =>
-        prev.map((p) => (p.id === selectedProduct.id ? { ...p, stock: p.stock - orderQuantity } : p))
-      );
-    } catch (err: any) {
-      setOrderFeedback({
-        type: "error",
-        message: err.message || "Error al procesar la reserva.",
-      });
+      const notes = [
+        customerContact.trim() && `Teléfono: ${customerContact.trim().slice(0,40)}`,
+        orderNotes.trim().slice(0,250),
+      ].filter(Boolean).join(" · ");
+      const deadlineISO=new Date(pickupDeadline).toISOString();
+      const order = await createPickupOrder(storeId, selectedProduct.id, orderQuantity, notes, requestKey, deadlineISO);
+      setPayableOrder(order);
+      setOrderFeedback({type:'success',message:'Pedido registrado. Escanea el QR para pagar.'});
+      // El inventario se reserva en MS2 por MS4. No descontamos stock localmente.
+    } catch(err) {
+      setOrderFeedback({type:'error',message:err instanceof Error ? err.message : 'No se pudo crear el pedido'});
     } finally {
+      submittingOrder.current = false;
       setIsSubmittingOrder(false);
     }
   }
@@ -286,6 +303,11 @@ export function StoreCatalog({ storeId, storeName, isLive }: StoreCatalogProps) 
         </section>
 
         {/* ═══════ MODAL DETALLE DE PRODUCTO Y CHECKOUT B2C ═══════ */}
+        {payableOrder && (
+          <PaymentQR order={payableOrder} onClose={() => {
+            setPayableOrder(null); setSelectedProduct(null); void loadCatalog();
+          }} />
+        )}
         {selectedProduct && (
           <ProductDetailModal
             product={selectedProduct}
@@ -293,16 +315,20 @@ export function StoreCatalog({ storeId, storeName, isLive }: StoreCatalogProps) 
             orderQuantity={orderQuantity}
             setOrderQuantity={setOrderQuantity}
             customerName={customerName}
-            setCustomerName={setCustomerName}
             customerContact={customerContact}
             setCustomerContact={setCustomerContact}
-            deliveryAddress={deliveryAddress}
-            setDeliveryAddress={setDeliveryAddress}
             orderNotes={orderNotes}
             setOrderNotes={setOrderNotes}
             onSubmitOrder={handleCreateOrder}
             isSubmitting={isSubmittingOrder}
             feedback={orderFeedback}
+            storeCanSell={storeCanSell}
+            buyerAccess={buyerAccess}
+            loginUrl={loginUrl}
+            availabilityFailed={availabilityFailed}
+            retryAvailability={() => setAvailabilityAttempt((attempt) => attempt + 1)}
+            pickupDeadline={pickupDeadline}
+            setPickupDeadline={setPickupDeadline}
           />
         )}
       </div>
@@ -318,16 +344,20 @@ interface ProductDetailModalProps {
   orderQuantity: number;
   setOrderQuantity: (n: number) => void;
   customerName: string;
-  setCustomerName: (s: string) => void;
   customerContact: string;
   setCustomerContact: (s: string) => void;
-  deliveryAddress: string;
-  setDeliveryAddress: (s: string) => void;
   orderNotes: string;
   setOrderNotes: (s: string) => void;
   onSubmitOrder: (e: React.FormEvent) => void;
   isSubmitting: boolean;
   feedback: { type: "success" | "error"; message: string } | null;
+  storeCanSell:boolean|null;
+  buyerAccess: StoreCatalogProps["buyerAccess"];
+  loginUrl: string;
+  availabilityFailed: boolean;
+  retryAvailability: () => void;
+  pickupDeadline:string;
+  setPickupDeadline:(v:string)=>void;
 }
 
 function ProductDetailModal({
@@ -336,16 +366,20 @@ function ProductDetailModal({
   orderQuantity,
   setOrderQuantity,
   customerName,
-  setCustomerName,
   customerContact,
   setCustomerContact,
-  deliveryAddress,
-  setDeliveryAddress,
   orderNotes,
   setOrderNotes,
   onSubmitOrder,
   isSubmitting,
   feedback,
+  storeCanSell,
+  buyerAccess,
+  loginUrl,
+  availabilityFailed,
+  retryAvailability,
+  pickupDeadline,
+  setPickupDeadline,
 }: ProductDetailModalProps) {
   // Solo consideramos las imágenes que realmente existan y estén cargadas
   const rawMedia = (product as any).media ?? (product as any).product_media ?? [];
@@ -463,7 +497,7 @@ function ProductDetailModal({
             <form onSubmit={onSubmitOrder} className="space-y-4 pt-4 border-t border-market-border/40">
               <span className="text-xs font-bold text-market-white uppercase tracking-wider block flex items-center gap-2">
                 <FiShoppingBag className="w-4 h-4 text-theme-primary" />
-                Completar Pedido / Reserva
+                Compra con recogida en tienda
               </span>
 
               {feedback && (
@@ -477,6 +511,7 @@ function ProductDetailModal({
                 </div>
               )}
 
+              {storeCanSell === true && buyerAccess === "buyer" && <>
               {/* Cantidad */}
               <div>
                 <label className="block text-[11px] font-semibold text-market-muted uppercase mb-1">
@@ -501,7 +536,7 @@ function ProductDetailModal({
                     +
                   </button>
                   <span className="text-xs text-market-muted ml-auto">
-                    Total: <strong className="text-theme-primary">{totalOrderPrice}</strong>
+                    Estimado: <strong className="text-theme-primary">{totalOrderPrice}</strong>
                   </span>
                 </div>
               </div>
@@ -513,10 +548,9 @@ function ProductDetailModal({
                     <FiUser className="w-4 h-4 text-market-muted absolute left-3 top-3" />
                     <input
                       type="text"
-                      required
-                      placeholder="Tu nombre completo *"
+                      readOnly
+                      placeholder="Nombre registrado en tu perfil"
                       value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
                       className="w-full bg-market-darker border border-market-border/60 rounded-xl pl-9 pr-4 py-2 text-xs text-market-white placeholder:text-market-muted/50 focus:outline-none focus:border-theme-primary"
                     />
                   </div>
@@ -527,8 +561,7 @@ function ProductDetailModal({
                     <FiPhone className="w-4 h-4 text-market-muted absolute left-3 top-3" />
                     <input
                       type="tel"
-                      required
-                      placeholder="Número de WhatsApp para coordinar *"
+                      placeholder="Teléfono de contacto (opcional)"
                       value={customerContact}
                       onChange={(e) => setCustomerContact(e.target.value)}
                       className="w-full bg-market-darker border border-market-border/60 rounded-xl pl-9 pr-4 py-2 text-xs text-market-white placeholder:text-market-muted/50 focus:outline-none focus:border-theme-primary"
@@ -541,18 +574,40 @@ function ProductDetailModal({
                     <FiMapPin className="w-4 h-4 text-market-muted absolute left-3 top-3" />
                     <input
                       type="text"
-                      placeholder="Dirección de entrega (o Recojo en tienda)"
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Recogida en tienda — envíos no disponibles"
+                      value="Recogida en tienda"
+                      readOnly
+                      disabled
                       className="w-full bg-market-darker border border-market-border/60 rounded-xl pl-9 pr-4 py-2 text-xs text-market-white placeholder:text-market-muted/50 focus:outline-none focus:border-theme-primary"
                     />
                   </div>
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <label htmlFor="pickupDeadline" className="block text-xs text-market-muted">Fecha límite de recogida (entre 1 y 7 días)</label>
+                <input id="pickupDeadline" type="datetime-local" required value={pickupDeadline}
+                  min={localDateTime(new Date(Math.ceil((Date.now() + 86400000) / 60000) * 60000))}
+                  max={localDateTime(new Date(Date.now() + 7 * 86400000))}
+                  onChange={e=>setPickupDeadline(e.target.value)}
+                  className="w-full rounded-xl bg-market-darker border border-market-border/60 text-market-white p-3 text-sm" />
+              </div>
+              </>}
+              {storeCanSell !== true && (
+                <div className="space-y-2 text-xs text-amber-300" role="status">
+                  <p>{availabilityFailed ? "No pudimos verificar si la tienda acepta compras."
+                    : storeCanSell === false ? "Solo catálogo. Esta tienda no tiene un plan de ventas activo."
+                    : "Comprobando disponibilidad de compras…"}</p>
+                  {availabilityFailed && <button type="button" className="underline" onClick={retryAvailability}>Reintentar</button>}
+                </div>
+              )}
+              {buyerAccess === "owner" && <a className="block text-xs underline" href="/planes">Gestionar plan de la tienda</a>}
+              {storeCanSell === true && buyerAccess === "guest" && <a className="block text-xs underline" href={loginUrl}>Iniciar sesión para comprar</a>}
+              {storeCanSell === true && buyerAccess === "restricted" && <p className="text-xs text-amber-300">Tu cuenta no puede crear pedidos.</p>}
+              {storeCanSell === true && buyerAccess === "buyer" && (
               <button
                 type="submit"
-                disabled={isSubmitting || product.stock === 0}
+                disabled={isSubmitting || product.stock === 0 || storeCanSell!==true}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-theme-primary to-theme-accent text-white font-bold text-sm shadow-lg hover:brightness-110 active:scale-[0.99] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
               >
                 {isSubmitting ? (
@@ -562,10 +617,11 @@ function ProductDetailModal({
                 ) : (
                   <>
                     <FiCheck className="w-4 h-4" />
-                    <span>Confirmar Pedido ({totalOrderPrice})</span>
+                    <span>Crear pedido y pagar</span>
                   </>
                 )}
               </button>
+              )}
             </form>
           </div>
         </div>
@@ -610,7 +666,7 @@ function ProductCard({ product, isLive = false, onClick }: ProductCardProps) {
           src={imageUrl}
           alt={product.name}
           fallbackName={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
         />
         {isLive && (
           <div className="absolute top-2 left-2">

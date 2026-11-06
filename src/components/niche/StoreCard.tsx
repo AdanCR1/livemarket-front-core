@@ -26,7 +26,7 @@ export function StoreCard({ store, nicheSlug }: StoreCardProps) {
           src={logoUrl}
           alt={`Logo de ${store.store_name}`}
           fallbackName={store.store_name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-contain bg-amber-50 transition-transform duration-500 group-hover:scale-105"
         />
         {/* Sombra gradual inferior */}
         <div 

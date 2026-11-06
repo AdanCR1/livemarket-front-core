@@ -1,0 +1,16 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { AssignedDeliveries } from '../components/delivery/AssignedDeliveries';
+
+export const prerender = false;
+const session = Astro.locals.session;
+if (!session) return Astro.redirect('/login?next=%2Fmis-envios');
+if (session.role !== 'DRIVER') return Astro.redirect(session.role === 'B2B' ? '/panel' : '/perfil');
+---
+
+<Layout title="Mis envíos" description="Asignaciones de reparto en MarketCloud">
+  <main class="mx-auto min-h-screen max-w-4xl px-4 py-8 text-market-white">
+    <h1 class="text-2xl font-bold">Mis envíos</h1>
+    <AssignedDeliveries client:load />
+  </main>
+</Layout>

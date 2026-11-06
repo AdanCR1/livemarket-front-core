@@ -360,7 +360,7 @@ const testimonials = [
               <div class="min-w-[85vw] sm:min-w-[40vw] md:min-w-0 snap-center relative rounded-2xl border border-market-border bg-market-card p-6 md:p-8">
                 <div class="flex items-center gap-1 text-theme-primary mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <FiStar key={i} className="w-4 h-4 fill-current" />
+                    <FiStar className="w-4 h-4 fill-current" />
                   ))}
                 </div>
                 <blockquote class="text-market-white/90 italic text-sm md:text-base">
@@ -442,7 +442,7 @@ const testimonials = [
   const carousel = document.getElementById("full-page-carousel");
   const slides = document.querySelectorAll(".scroll-slide");
   const scrollProgress = document.getElementById("scroll-progress");
-  const video = document.getElementById("hero-video");
+  const video = document.querySelector<HTMLVideoElement>("video#hero-video");
 
   let currentSlideIndex = 0;
 
@@ -484,7 +484,7 @@ const testimonials = [
         // Animación de slides (imágenes y texto)
         slides.forEach((slide, i) => {
           const content = slide.querySelector(".fade-content");
-          const bg = slide.querySelector(".zoom-bg");
+          const bg = slide.querySelector<HTMLElement>(".zoom-bg");
 
           if (content && bg) {
             if (i === index) {
@@ -505,7 +505,7 @@ const testimonials = [
   slides.forEach((slide) => observer.observe(slide));
 
   // Controles
-  function scrollToSlide(direction) {
+  function scrollToSlide(direction: "next" | "prev") {
     const newIndex =
       direction === "next" ? currentSlideIndex + 1 : currentSlideIndex - 1;
     if (newIndex >= 0 && newIndex < slides.length) {

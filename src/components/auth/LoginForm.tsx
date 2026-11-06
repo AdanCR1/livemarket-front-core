@@ -6,7 +6,6 @@ import {
     FiLock,
     FiUserPlus,
 } from "react-icons/fi";
-import { AuthService } from "../../lib/types/services";
 import { establishSession } from "../../components/auth/establishSession";
 import type { LoginPayload } from "../../lib/types/types";
 
@@ -25,15 +24,7 @@ export default function LoginForm() {
         setError(null);
         setLoading(true);
 
-        const { data, error: loginError } = await AuthService.login(form);
-
-        if (loginError || !data) {
-            setError(loginError ?? "No se pudo iniciar sesión.");
-            setLoading(false);
-            return;
-        }
-
-        const result = await establishSession(data);
+        const result = await establishSession(form);
         setLoading(false);
 
         if (!result.ok) {
@@ -41,7 +32,11 @@ export default function LoginForm() {
             return;
         }
 
-        window.location.href = result.redirectTo;
+        const next = new URLSearchParams(window.location.search).get("next");
+        const destination = next?.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? new URL(next, window.location.origin) : null;
+        window.location.href = destination?.origin === window.location.origin
+          ? destination.href
+          : result.redirectTo;
     }
 
     return (

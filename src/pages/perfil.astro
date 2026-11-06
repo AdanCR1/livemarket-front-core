@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import {AccountSettings} from '../components/account/AccountSettings';
+import { ProfileIdentity } from '../components/plans/ProfileIdentity';
+export const prerender=false;
+const s=Astro.locals.session;
+if(!s) return Astro.redirect('/login?next=%2Fperfil');
+if(s.role==='B2B') return Astro.redirect('/panel');
+if(s.role!=='B2C')return Astro.redirect('/login');
+---
+<Layout title="Mi perfil" description="Perfil y QR bancario de MarketCloud">
+ <main class="min-h-screen max-w-5xl mx-auto px-4 py-10">
+  <h1 class="text-2xl font-bold text-market-white mb-6">Mi cuenta</h1>
+  <div class="space-y-6">
+    <ProfileIdentity client:load />
+    <AccountSettings client:load variant="customer" />
+  </div>
+ </main>
+</Layout>

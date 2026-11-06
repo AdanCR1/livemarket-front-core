@@ -92,7 +92,7 @@ export const NICHES: Record<string, NicheConfig> = {
     ],
   },
     ropa: {
-    slug: "ropa",
+    slug: "oda",
     label: "ropa",
     theme: "theme-ropa",
     icon: FiShoppingBag,
@@ -104,7 +104,7 @@ export const NICHES: Record<string, NicheConfig> = {
     active: false,
     megaMenu: [
       {
-        title: "Ropa",
+        title: "Moda",
         links: [
           { label: "Remeras", href: "/ropa/remeras" },
           { label: "Pantalones", href: "/ropa/pantalones" },
