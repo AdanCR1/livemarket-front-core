@@ -106,7 +106,7 @@ export const PANEL_THEMES: Record<string, PanelThemeConfig> = {
     bgColor: "#050d0b",
     surfaceColor: "#0c1d18",
     fontDisplay: "'Space Grotesk', sans-serif",
-    roleGreeting: "Tech Partner",
+    roleGreeting: "Socio tecnológico",
     productCreationTitle: "Nuevo producto tecnológico",
     illustrationLabel: "Circuitos, componentes e innovación digital",
     dashboardBgImage: "/img/bg-tecnologia.webp",

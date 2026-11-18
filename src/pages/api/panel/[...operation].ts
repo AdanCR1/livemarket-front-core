@@ -5,6 +5,7 @@ import { serviceUrl } from "../../../lib/server/service-url";
 export const prerender = false;
 
 const operations = [
+  { method: "PATCH", path: /^live$/, prefix: "/api/account/" },
   { method: "GET", path: /^drivers$/, prefix: "/api/b2b/" },
   { method: "POST", path: /^drivers\/create$/, prefix: "/api/b2b/" },
   { method: "PATCH", path: /^drivers\/[\w-]+\/toggle$/, prefix: "/api/b2b/" },
@@ -42,7 +43,7 @@ export const ALL: APIRoute = async ({ request, locals, params, url }) => {
   }
 
   let base: string;
-  const service = path.startsWith('drivers') ? 'MS1' : path === 'product-media' ? 'MS3' : 'MS2';
+  const service = (path === 'live' || path.startsWith('drivers')) ? 'MS1' : path === 'product-media' ? 'MS3' : 'MS2';
   try { base = serviceUrl(service, url); }
   catch {
     console.error("[PANEL PROXY] URL de servicio inválida", {

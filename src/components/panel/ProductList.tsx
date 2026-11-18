@@ -78,7 +78,7 @@ export function ProductList({
                   src={firstMedia}
                   alt={product.name}
                   fallbackName={product.name}
-                  className="w-full h-full object-cover product-image"
+                  className="w-full h-full object-contain product-image"
                 />
                 {product.stock <= 5 && (
                   <span

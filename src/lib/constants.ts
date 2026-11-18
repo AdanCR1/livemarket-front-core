@@ -31,7 +31,7 @@ export const R2_DOMAIN = _rawR2
 export const SITE_NAME = "MARKETCLOUD";
 
 export const SITE_DESCRIPTION =
-  "El mercado digital multi-nicho. Descubre tiendas, productos y transmisiones en vivo de gastronomía, tecnología, moda y servicios.";
+  "Descubre dispositivos electrónicos, componentes y tiendas de tecnología en Sucre, Bolivia.";
 
 export function buildMediaUrl(relativePath: string | null | undefined): string | undefined {
   if (!relativePath) return undefined;

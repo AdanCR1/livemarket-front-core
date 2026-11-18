@@ -369,7 +369,7 @@ export function ProductForm({
                       <img
                         src={preview}
                         alt={SLOT_LABELS[order]}
-                        className="w-full aspect-square object-cover rounded-xl border border-[var(--panel-border)]"
+                        className="w-full aspect-square object-contain rounded-xl border border-[var(--panel-border)]"
                       />
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
                         <label className="px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs cursor-pointer hover:bg-white/20">

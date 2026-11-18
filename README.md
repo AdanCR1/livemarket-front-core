@@ -1,6 +1,6 @@
 # MARKETCLOUD Front Core
 
-Frontend de MARKETCLOUD, una plataforma multi-nicho para descubrir tiendas,
+Frontend de MARKETCLOUD, un marketplace de tecnología en Sucre para descubrir tiendas,
 productos y transmisiones en vivo. Usa Astro para las páginas y el renderizado
 server-side, y React para las islas interactivas.
 
@@ -20,11 +20,11 @@ server-side, y React para las islas interactivas.
 | Comando | Función |
 | --- | --- |
 | `pnpm install` | Instala las dependencias. |
-| `pnpm dev` | Inicia Astro en `localhost:4321`. |
+| `pnpm exec astro dev --background` | Inicia Astro en `localhost:4321`. |
 | `pnpm dev:cf` | Compila y sirve con el runtime local de Cloudflare Pages. |
 | `pnpm build` | Genera la aplicación en `dist/`. |
 | `pnpm preview` | Sirve `dist/` con Wrangler. |
-| `pnpm deploy` | Compila y despliega en Cloudflare Pages. |
+| `pnpm deploy` | Script heredado de Pages. El adaptador actual genera un Worker en `dist/server`. |
 | `pnpm astro` | Ejecuta comandos de la CLI de Astro. |
 
 ## Mapa de la estructura
@@ -49,11 +49,6 @@ Cada entrada incluye un comentario breve sobre la función del archivo.
 │   ├── img/
 │   │   ├── bg-gastronomia.webp       # Fondo del panel de Gastronomía.
 │   │   ├── login-img.avif            # Imagen de la pantalla de autenticación.
-│   │   ├── nichos-gastro.avif        # Imagen del nicho Gastronomía.
-│   │   ├── nichos-jugueteria.avif    # Imagen del nicho Juguetería.
-│   │   ├── nichos-moda.avif          # Imagen del nicho Moda.
-│   │   ├── nichos-otros.avif         # Imagen del nicho Otros.
-│   │   └── nichos-tech.avif          # Imagen del nicho Tecnología.
 │   └── video/
 │       └── video-hero.mp4            # Video principal de la landing.
 ├── src/
@@ -121,7 +116,7 @@ Cada entrada incluye un comentario breve sobre la función del archivo.
 │   │       ├── services.ts           # Fetch seguro y servicios de microservicios.
 │   │       └── types.ts              # Tipos del dominio y autenticación.
 │   ├── pages/
-│   │   ├── index.astro               # Landing, búsqueda y presentación de nichos.
+│   │   ├── index.astro               # Inicio y accesos a búsquedas tecnológicas.
 │   │   ├── login.astro               # Página de inicio de sesión.
 │   │   ├── mis-envios.astro          # Vista de asignaciones del repartidor.
 │   │   ├── mis-pedidos.astro         # Historial y seguimiento de compras.
@@ -180,12 +175,12 @@ Cada entrada incluye un comentario breve sobre la función del archivo.
 	`Astro.locals`. `decode.ts` solo sirve para UI; la autorización real debe
 	validarse en los microservicios.
 5. El chat de pedidos usa MS5 detrás de `/api/chat`; requiere configuración y
-	habilitación tanto del proxy como de la interfaz.
+	habilitación del proxy con `MS5_CHAT_ENABLED=true`.
 
 ## Algoritmos y reglas de negocio en `src/`
 
 - **Creación de pedidos (`api/checkout.ts`):** solo admite sesión B2B/B2C y
-  modalidad `PICKUP`; rechaza `DELIVERY`. Valida UUID de tienda/producto y
+  modalidad `PICKUP` o `DELIVERY`. DELIVERY exige dirección y MS4 comprueba plan vigente y flota activa. Valida UUID de tienda/producto y
   variante, entre 1 y 30 artículos, cantidad entera de 1 a 100 por artículo,
   fecha límite de recogida entre 1 y 7 días, y `Idempotency-Key` de 8 a 128
   caracteres alfanuméricos, `_` o `-`. Normaliza los campos enviados y limita
@@ -248,14 +243,22 @@ y del chat se leen en sus módulos de configuración y rutas:
 
 | Variable | Uso | Valor por defecto |
 | --- | --- | --- |
-| `PUBLIC_MS1_URL` | Autenticación, perfiles, tiendas y ubicaciones. | `http://localhost:8787` |
-| `PUBLIC_MS2_URL` | Inventario y sesiones live. | `http://localhost:8788` |
+| `PUBLIC_MS1_URL` | Autenticación, perfiles, tiendas y ubicaciones. | `http://127.0.0.1:8789` |
+| `PUBLIC_MS2_URL` | Inventario y sesiones live. | `http://127.0.0.1:8791` |
 | `PUBLIC_MS3_URL` | Carga y servicio de archivos multimedia. | `http://localhost:8789` |
-| `PUBLIC_MS4_URL` | Gestión de pedidos. | `http://localhost:8790` |
+| `PUBLIC_MS4_URL` | Gestión de pedidos. | `http://127.0.0.1:8788` |
 | `PUBLIC_MS6_URL` | Perfiles bancarios, suscripciones y generación de QR. | Configurar como binding o URL de build para el proxy server-side. |
 | `PUBLIC_R2_DOMAIN` | Dominio público de logos y media. | `http://localhost:8789/media` |
 | `MS5_URL` | Servicio de mensajería detrás del proxy de chat. | Sin valor por defecto. |
 | `MS5_CHAT_ENABLED` | Habilita las rutas proxy del chat cuando vale `true`. | Deshabilitado. |
-| `PUBLIC_MS5_CHAT_ENABLED` | Muestra la interfaz de chat cuando vale `true`. | Deshabilitado. |
+
 | `PRO_CHECKOUT_VERIFIED` | Habilita checkout PRO cuando vale `true`. | Deshabilitado. |
 | `ENTERPRISE_CONTACT_EMAIL` | Email de contacto empresarial validado por formato. | Sin valor por defecto. |
+
+## Catálogo público y Modo Live
+
+`/buscar` combina el directorio tecnológico de MS1 con catálogos por tienda de MS2. Filtra por Sucre, dirección y categoría cuando el producto trae `attributes.categoria`. Ordena coincidencias exactas, parciales y aproximadas antes de paginar. La cobertura depende de los productos devueltos por MS2. El megamenú envía consultas a esta ruta.
+
+`/tecnologia/:store_id` usa el UUID de la tienda. El panel cambia Live mediante `PATCH /api/panel/live`, que delega en MS1. El directorio usa el `is_live` público de MS1 y refresca cada 30 segundos en pestañas visibles. `?live=true` abre la vista pública con los productos fijados de MS2. El registro B2B envía `tecnologia` y `city_id: 23`.
+
+Para gestionar Astro en segundo plano usa `pnpm exec astro dev status`, `pnpm exec astro dev logs` y `pnpm exec astro dev stop`.

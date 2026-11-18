@@ -13,7 +13,7 @@ import { ProductList } from "./ProductList";
 import { ProductForm } from "./ProductForm";
 import { LiveManager } from "./LiveManager";
 import { getPanelTheme } from "../../lib/panel-themes";
-import { InventoryService, MediaService } from "../../lib/types/services";
+import { StoreService, InventoryService, MediaService } from "../../lib/types/services";
 import { OrderManager } from "./OrderManager";
 import { DriverManager } from "./DriverManager";
 import { AccountSettings } from "../account/AccountSettings";
@@ -29,6 +29,7 @@ export interface PanelShellProps {
   storeName: string;
   niche: string;
   initialIsLive?: boolean;
+  initialLiveError?: string | null;
   userEmail?: string;
 }
 
@@ -45,6 +46,7 @@ export function PanelShell({
   storeName,
   niche,
   initialIsLive = false,
+  initialLiveError = null,
   userEmail,
 }: PanelShellProps) {
   const theme = getPanelTheme(niche);
@@ -57,6 +59,21 @@ export function PanelShell({
   const [pinnedProducts, setPinnedProducts] = useState<ProductWithMedia[]>([]);
   const [editingProduct, setEditingProduct] = useState<ProductWithMedia | null>(null);
   const [isLive, setIsLive] = useState(initialIsLive);
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveError, setLiveError] = useState(initialLiveError ? "No se pudo consultar el estado Live. Actualiza el panel." : null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  async function toggleLive(next: boolean) {
+    if (liveBusy) return;
+    setLiveBusy(true);
+    setLiveError(null);
+    try {
+      const result = await StoreService.setLive(next);
+      if (result.data?.profile_id === storeId && result.data.is_live === next) setIsLive(next);
+      else setLiveError("No se confirmó el cambio. Actualiza el panel para consultar el estado guardado.");
+    } finally {
+      setLiveBusy(false);
+    }
+  }
   const [loading, setLoading] = useState(true);
 
   const [feedback, setFeedback] = useState<FeedbackNotice | null>(null);
@@ -93,6 +110,7 @@ export function PanelShell({
       setProducts(catalogRes.data ?? []);
     }
 
+    setPreviewError(liveRes.error);
     if (liveRes.error) {
       console.warn(`[PanelShell] Live no disponible: ${liveRes.error}`);
       setPinnedProducts([]);
@@ -587,7 +605,12 @@ export function PanelShell({
                       isLive={isLive}
                       allProducts={products}
                       pinnedProducts={pinnedProducts}
-                      onToggleLive={setIsLive}
+                      onToggleLive={toggleLive}
+                      storeId={storeId}
+                      liveBusy={liveBusy || Boolean(initialLiveError)}
+                      liveError={liveError}
+                      previewError={previewError}
+                      previewLoading={loading}
                       onTogglePinProduct={handleTogglePinProduct}
                     />
                   )}

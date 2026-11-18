@@ -1,318 +1,495 @@
+
 ---
 /**
- * Navbar global de MARKETCLOUD.
- * Componente Astro estático. Usa iconos de React en server-side rendering.
- * Los mega menús se manejan con vanilla JS.
+ * Navbar global de MarketCloud.
+ * Astro SSR + react-icons.
+ * Navegación tecnológica responsive.
  */
-import { NICHES } from "../lib/niches";
+
 import { SITE_NAME } from "../lib/constants";
+
 import {
-  FiChevronDown,
-  FiLogIn,
-  FiUserPlus,
-  FiShoppingBag,
   FiUser,
+  FiSearch,
+  FiMenu,
+  FiShoppingBag,
+  FiGrid,
+  FiChevronDown,
+  FiSmartphone,
+  FiMonitor,
+  FiCpu,
+  FiHeadphones,
+  FiTablet,
+  FiHardDrive,
+  FiMousePointer,
+  FiBox,
+  FiX,
 } from "react-icons/fi";
 
-interface Props {
-  /** Slug del nicho activo para resaltar en el nav */
-  activeNiche?: string;
-}
+const links = [
+  {
+    label: "Productos",
+    href: "/buscar",
+    icon: FiShoppingBag,
+  },
+  {
+    label: "Tiendas",
+    href: "/tecnologia",
+    icon: FiMonitor,
+  },
+];
 
-const { activeNiche } = Astro.props;
-const nicheEntries = Object.values(NICHES);
-// Lectura de sesión desde middleware existente; solo para navegación visual.
-const session=Astro.locals.session as {role?:string;exp?:number}|null;
-const exp=typeof session?.exp === 'number' ? session.exp : null;
-const accountActive=!!session && (exp===null || exp*1000>Date.now());
-const accountHref=accountActive?(session.role==='B2B'?'/panel':session.role==='DRIVER'?'/mis-envios':'/perfil'):'/login';
-const accountLabel=accountActive?'Mi cuenta':'Iniciar sesión';
+const shortcuts = [
+  {
+    label: "Celulares y smartphones",
+    q: "celulares",
+    icon: FiSmartphone,
+  },
+  {
+    label: "Laptops y notebooks",
+    q: "laptops",
+    icon: FiMonitor,
+  },
+  {
+    label: "Tablets",
+    q: "tablets",
+    icon: FiTablet,
+  },
+  {
+    label: "Computadoras",
+    q: "computadoras",
+    icon: FiHardDrive,
+  },
+  {
+    label: "Componentes",
+    q: "componentes",
+    icon: FiCpu,
+  },
+  {
+    label: "Periféricos",
+    q: "perifericos",
+    icon: FiMousePointer,
+  },
+  {
+    label: "Audífonos y audio",
+    q: "audifonos",
+    icon: FiHeadphones,
+  },
+  {
+    label: "Gaming",
+    q: "gaming",
+    icon: FiMonitor,
+  },
+  {
+    label: "Accesorios",
+    q: "accesorios",
+    icon: FiBox,
+  },
+];
+
+const search =
+  Astro.url.pathname === "/buscar"
+    ? Astro.url.searchParams.get("q") ?? ""
+    : "";
+
+const session = Astro.locals.session as {
+  role?: string;
+  exp?: number;
+} | null;
+
+const exp =
+  typeof session?.exp === "number"
+    ? session.exp
+    : null;
+
+const accountActive =
+  !!session &&
+  (exp === null || exp * 1000 > Date.now());
+
+const accountHref = accountActive
+  ? session.role === "B2B"
+    ? "/panel"
+    : session.role === "DRIVER"
+      ? "/mis-envios"
+      : "/perfil"
+  : "/login";
+
+const accountLabel = accountActive
+  ? "Mi cuenta"
+  : "Iniciar sesión";
+
+const underlineClass =
+  "relative inline-flex items-center gap-1.5 " +
+  "after:absolute after:bottom-0 after:left-0 " +
+  "after:h-[2px] after:w-full after:rounded-full " +
+  "after:bg-theme-primary after:content-[''] " +
+  "after:origin-left after:scale-x-0 " +
+  "after:transition-transform after:duration-300 " +
+  "hover:after:scale-x-100 " +
+  "focus-visible:after:scale-x-100";
 ---
 
 <header
-  class="sticky top-0 z-50 w-full border-b border-market-border/50 bg-market-darker/80 backdrop-blur-xl"
+  class="sticky top-0 z-50 border-b border-market-border/50 bg-market-darker/95 backdrop-blur-xl"
 >
-  <div class="relative">
-    <!-- Barra principal -->
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="flex h-16 items-center justify-between">
-        <!-- Logo -->
-        <a href="/" class="group flex items-center gap-3 no-underline">
-          <div
-            class="flex h-9 w-9 items-center justify-center group-hover:scale-110"
-          >
-            <img class="w-10 h-auto" src="/logo.webp" alt="Logo" />
-          </div>
-          <span class="text-lg font-bold tracking-tight text-market-white">
-            {SITE_NAME}
-          </span>
-        </a>
+  <div
+    class="mx-auto flex w-full max-w-7xl items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4 lg:gap-5"
+  >
+    <!-- LOGO + NOMBRE SOLO EN ESCRITORIO -->
+    <a
+      href="/"
+      aria-label="MarketCloud — Inicio"
+      class="flex shrink-0 items-center gap-2.5 no-underline"
+    >
+      <img
+        src="/logo.webp"
+        alt="MarketCloud"
+        class="h-9 w-9 object-contain sm:h-10 sm:w-10"
+      />
 
-        <!-- Nichos (desktop) -->
-        <div class="hidden md:flex items-center gap-1">
+      <span
+        class="hidden font-display text-lg font-bold tracking-tight lg:inline"
+      >
+        {SITE_NAME}
+      </span>
+    </a>
+
+    <!-- NAVEGACIÓN ESCRITORIO -->
+    <nav
+      class="hidden shrink-0 items-center gap-5 lg:flex"
+      aria-label="Navegación principal"
+    >
+      {
+        links.map(({ label, href }) => (
+          <a
+            href={href}
+            aria-current={
+              Astro.url.pathname === href
+                ? "page"
+                : undefined
+            }
+            class:list={[
+              underlineClass,
+              "py-2 text-sm transition-colors hover:text-theme-primary",
+              Astro.url.pathname === href &&
+                "text-theme-primary",
+            ]}
+          >
+            {label}
+          </a>
+        ))
+      }
+
+      <!-- MEGAMENÚ ESCRITORIO -->
+      <div class="group relative">
+        <button
+          type="button"
+          aria-haspopup="true"
+          class:list={[
+            underlineClass,
+            "py-2 text-sm transition-colors hover:text-theme-primary",
+          ]}
+        >
+          Categorías
+          <FiChevronDown
+            size={15}
+            className="transition-transform duration-200 group-hover:rotate-180"
+          />
+        </button>
+
+        <div
+          class="invisible absolute left-0 top-full z-50 w-96 translate-y-1 rounded-xl border border-market-border bg-market-darker p-4 opacity-0 shadow-2xl transition-all duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100"
+        >
+          <div class="mb-3 border-b border-market-border/50 pb-3">
+            <p class="text-sm font-semibold">
+              Explora tecnología
+            </p>
+            <p class="mt-1 text-xs text-gray-400">
+              Encuentra lo que necesitas
+            </p>
+          </div>
+
+          <ul class="grid grid-cols-2 gap-x-4 gap-y-1">
+            {
+              shortcuts.map(
+                ({ label, q, icon: Icon }) => (
+                  <li>
+                    <a
+                      class="group/item flex items-center gap-2 rounded-lg px-2 py-2.5 text-sm transition-colors hover:bg-market-card hover:text-theme-primary"
+                      href={`/buscar?${new URLSearchParams({ q })}`}
+                    >
+                      <Icon
+                        size={17}
+                        className="shrink-0 opacity-70 transition-colors group-hover/item:opacity-100"
+                      />
+
+                      <span
+                        class="relative after:absolute after:bottom-[-3px] after:left-0 after:h-px after:w-full after:origin-left after:scale-x-0 after:bg-theme-primary after:transition-transform after:duration-300 group-hover/item:after:scale-x-100 group-focus-within/item:after:scale-x-100"
+                      >
+                        {label}
+                      </span>
+                    </a>
+                  </li>
+                )
+              )
+            }
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- BUSCADOR RESPONSIVE -->
+    <form
+      action="/buscar"
+      method="get"
+      role="search"
+      class="relative flex min-w-0 flex-1 items-center lg:ml-auto lg:max-w-sm"
+    >
+      <input
+        aria-label="Buscar tecnología"
+        class="h-10 w-full min-w-0 rounded-lg border border-market-border bg-market-card py-2 pl-3 pr-10 text-sm outline-none transition-colors focus:border-theme-primary sm:pl-4"
+        type="search"
+        name="q"
+        maxlength="120"
+        value={search}
+        placeholder="Buscar tecnología"
+      />
+
+      <button
+        type="submit"
+        aria-label="Buscar"
+        class="absolute right-0 flex h-10 w-10 items-center justify-center rounded-r-lg transition-colors hover:text-theme-primary"
+      >
+        <FiSearch size={19} />
+      </button>
+    </form>
+
+    <!-- CUENTA ESCRITORIO -->
+    <a
+      class="hidden shrink-0 items-center gap-2 rounded-lg border border-market-border px-3 py-2 text-sm transition-colors hover:border-theme-primary hover:text-theme-primary lg:flex"
+      href={accountHref}
+    >
+      <FiUser size={17} />
+      {accountLabel}
+    </a>
+
+    <!-- MENÚ MÓVIL -->
+    <details
+      id="market-mobile-menu"
+      class="relative shrink-0 lg:hidden"
+    >
+      <summary
+        aria-label="Abrir menú de navegación"
+        class="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-market-border transition-colors hover:border-theme-primary hover:text-theme-primary [&::-webkit-details-marker]:hidden"
+      >
+        <span class="menu-open-icon">
+          <FiMenu size={23} />
+        </span>
+
+        <span class="menu-close-icon hidden">
+          <FiX size={23} />
+        </span>
+      </summary>
+
+      <!-- FONDO OSCURO DETRÁS DEL MENÚ -->
+      <button
+        type="button"
+        data-close-mobile-menu
+        aria-label="Cerrar menú de navegación"
+        class="mobile-menu-backdrop fixed inset-0 z-[-1] hidden cursor-default bg-black/60 backdrop-blur-[3px]"
+      ></button>
+
+      <!-- PANEL MÓVIL -->
+      <nav
+        class="mobile-menu-panel absolute right-0 top-full z-10 mt-3 w-[min(19rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain rounded-2xl border border-market-border bg-market-darker p-4 shadow-2xl"
+        aria-label="Navegación móvil"
+      >
+        <div class="mb-3 border-b border-market-border/50 pb-3">
+          <p class="text-sm font-semibold">
+            Explorar MarketCloud
+          </p>
+          <p class="mt-1 text-xs text-gray-400">
+            Tecnología en Sucre
+          </p>
+        </div>
+
+        <!-- ENLACES PRINCIPALES -->
+        <div class="space-y-1">
           {
-            nicheEntries.map((niche) => {
-              const NicheIcon = niche.icon;
-              return (
-                <div class="relative" data-mega-wrapper>
-                  <a
-                    href={niche.active ? `/${niche.slug}` : "#"}
-                    class:list={[
-                      "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 no-underline",
-                      activeNiche === niche.slug
-                        ? "bg-theme-primary/15 text-theme-primary"
-                        : niche.active
-                          ? "text-market-muted hover:text-market-white hover:bg-market-card"
-                          : "text-market-muted/40 cursor-default",
-                    ]}
-                    aria-haspopup={niche.megaMenu ? "true" : undefined}
-                    aria-expanded={niche.megaMenu ? "false" : undefined}
-                    aria-controls={
-                      niche.megaMenu ? `mega-panel-${niche.slug}` : undefined
-                    }
-                    data-mega-trigger={niche.megaMenu ? niche.slug : undefined}
-                  >
-                    <span class="flex items-center">
-                      <NicheIcon className="w-4 h-4" />
-                    </span>
-                    {niche.label}
-                    {niche.megaMenu && (
-                      <FiChevronDown className="w-3.5 h-3.5 transition-transform duration-200" />
-                    )}
-                  </a>
-                </div>
-              );
-            })
+            links.map(({ label, href, icon: Icon }) => (
+              <a
+                href={href}
+                aria-current={
+                  Astro.url.pathname === href
+                    ? "page"
+                    : undefined
+                }
+                class:list={[
+                  "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-market-card hover:text-theme-primary",
+                  Astro.url.pathname === href &&
+                    "bg-market-card text-theme-primary",
+                ]}
+              >
+                <Icon size={19} className="shrink-0" />
+                <span>{label}</span>
+              </a>
+            ))
           }
         </div>
 
-        <!-- Acciones de cuenta (desktop) -->
-        <div class="hidden md:flex items-center gap-2">
+        <!-- CATEGORÍAS EXPANDIBLES -->
+        <details class="mobile-categories group/categories mt-1">
+          <summary
+            class="flex cursor-pointer list-none items-center justify-between rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-market-card hover:text-theme-primary [&::-webkit-details-marker]:hidden"
+          >
+            <span class="flex items-center gap-3">
+              <FiGrid size={19} />
+              Categorías
+            </span>
+
+            <FiChevronDown
+              size={17}
+              className="transition-transform duration-200 group-open/categories:rotate-180"
+            />
+          </summary>
+
+          <ul
+            class="ml-5 mt-1 max-h-64 space-y-1 overflow-y-auto border-l border-market-border/60 pl-3"
+          >
+            {
+              shortcuts.map(
+                ({ label, q, icon: Icon }) => (
+                  <li>
+                    <a
+                      href={`/buscar?${new URLSearchParams({ q })}`}
+                      class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-300 transition-colors hover:bg-market-card hover:text-theme-primary"
+                    >
+                      <Icon
+                        size={17}
+                        className="shrink-0"
+                      />
+                      <span>{label}</span>
+                    </a>
+                  </li>
+                )
+              )
+            }
+          </ul>
+        </details>
+
+        <!-- USUARIO -->
+        <div class="mt-3 border-t border-market-border/50 pt-3">
           <a
             href={accountHref}
-            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all no-underline text-market-muted hover:text-market-white hover:bg-market-card"
-            aria-label="Iniciar sesión o crear cuenta"
+            class="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-market-card hover:text-theme-primary"
           >
-            <FiUser className="w-5 h-5" />
-            <span class="hidden lg:inline">{accountLabel}</span>
+            <FiUser size={19} />
+            <span>{accountLabel}</span>
           </a>
         </div>
-
-        <!-- Botón menú mobile -->
-        <button
-          id="mobile-menu-btn"
-          class="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-market-muted hover:text-market-white hover:bg-market-card transition-colors"
-          aria-label="Abrir menú de navegación"
-          aria-expanded="false"
-        >
-          <svg
-            class="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6h16M4 12h16M4 18h16"></path>
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Paneles de mega menú (desktop) -->
-    {
-      nicheEntries
-        .filter((niche) => niche.megaMenu)
-        .map((niche) => (
-          <div
-            id={`mega-panel-${niche.slug}`}
-            data-mega-panel
-            class="hidden absolute left-0 right-0 top-full z-50 px-4 sm:px-6 lg:px-8"
-          >
-            <div class="mx-auto max-w-7xl pt-4 pb-8">
-              <div class="rounded-3xl border border-market-border/60 bg-market-card/95 backdrop-blur-xl shadow-2xl p-6 sm:p-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                  {niche.megaMenu?.map((column) => (
-                    <div>
-                      <h3 class="text-xs uppercase tracking-widest text-market-muted font-semibold mb-4">
-                        {column.title}
-                      </h3>
-                      <ul class="space-y-3">
-                        {column.links.map((link) => (
-                          <li>
-                            <a
-                              href={link.href}
-                              class="group/link block rounded-xl px-3 py-2 -mx-3 hover:bg-market-darker/60 transition-colors no-underline"
-                            >
-                              <span class="block text-sm font-medium text-market-white group-hover/link:text-theme-primary">
-                                {link.label}
-                              </span>
-                              {link.description && (
-                                <span class="block text-xs text-market-muted mt-0.5">
-                                  {link.description}
-                                </span>
-                              )}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))
-    }
-  </div>
-
-  <!-- Menú mobile -->
-  <div
-    id="mobile-menu"
-    class="hidden md:hidden border-t border-market-border/50 bg-market-darker/95 backdrop-blur-xl"
-  >
-    <div class="px-4 py-3 space-y-1">
-      {
-        nicheEntries.map((niche) => {
-          const NicheIcon = niche.icon;
-
-          if (niche.megaMenu) {
-            return (
-              <details class="group">
-                <summary class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-market-muted hover:text-market-white hover:bg-market-card cursor-pointer list-none transition-colors">
-                  <span class="flex items-center">
-                    <NicheIcon className="w-4 h-4" />
-                  </span>
-                  {niche.label}
-                  <FiChevronDown className="ml-auto w-4 h-4 transition-transform group-open:rotate-180" />
-                </summary>
-                <div class="pl-6 pr-2 py-2 space-y-1 border-l border-market-border/50 ml-4">
-                  {niche.megaMenu.map((column) => (
-                    <div class="mb-3">
-                      <p class="text-xs uppercase tracking-widest text-market-muted/40 font-bold mb-2">
-                        {column.title}
-                      </p>
-                      {column.links.map((link) => (
-                        <a
-                          href={link.href}
-                          class="block px-3 py-2 rounded-lg text-sm text-market-muted hover:text-market-white hover:bg-market-card no-underline transition-colors"
-                        >
-                          {link.label}
-                        </a>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            );
-          }
-
-          return (
-            <a
-              href={niche.active ? `/${niche.slug}` : "#"}
-              class:list={[
-                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all no-underline",
-                activeNiche === niche.slug
-                  ? "bg-theme-primary/15 text-theme-primary"
-                  : niche.active
-                    ? "text-market-muted hover:text-market-white hover:bg-market-card"
-                    : "text-market-muted/40 cursor-default",
-              ]}
-            >
-              <span class="flex items-center">
-                <NicheIcon className="w-4 h-4" />
-              </span>
-              {niche.label}
-              {!niche.active && (
-                <span class="ml-auto text-[10px] uppercase tracking-widest text-market-muted/30 font-bold">
-                  Pronto
-                </span>
-              )}
-            </a>
-          );
-        })
-      }
-    </div>
-
-    <!-- Acciones de cuenta en mobile -->
-    <div class="px-4 py-4 border-t border-market-border/50">
-      <a
-        href={accountHref}
-        class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-market-muted hover:text-market-white hover:bg-market-card no-underline transition-colors"
-      >
-        <FiUser className="w-5 h-5" />
-        {accountLabel}
-      </a>
-    </div>
+      </nav>
+    </details>
   </div>
 </header>
 
+<style>
+  /* Subrayado fluido sin desplazamiento del texto */
+  @media (prefers-reduced-motion: reduce) {
+    header a,
+    header button,
+    header span,
+    header nav {
+      transition-duration: 0ms !important;
+    }
+  }
+
+  #market-mobile-menu[open] .mobile-menu-backdrop {
+    display: block;
+  }
+
+  #market-mobile-menu[open] .menu-open-icon {
+    display: none;
+  }
+
+  #market-mobile-menu[open] .menu-close-icon {
+    display: flex;
+  }
+
+  .mobile-menu-panel {
+    transform-origin: top right;
+    animation: mobile-menu-in 180ms ease-out;
+  }
+
+  @keyframes mobile-menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-menu-panel {
+      animation: none;
+    }
+  }
+</style>
+
 <script>
-  // Toggle menú mobile
-  const btn = document.getElementById("mobile-menu-btn");
-  const menu = document.getElementById("mobile-menu");
+  function initMarketMobileMenu() {
+    const menu = document.querySelector<HTMLDetailsElement>(
+      "#market-mobile-menu"
+    );
 
-  btn?.addEventListener("click", () => {
-    if (!menu) return;
-    const isOpen = !menu.classList.contains("hidden");
-    menu.classList.toggle("hidden");
-    btn.setAttribute("aria-expanded", String(!isOpen));
-  });
+    if (!menu || menu.dataset.initialized === "true") {
+      return;
+    }
 
-  // Mega menús desktop
-  const wrappers = document.querySelectorAll("[data-mega-wrapper]");
-  const panels = Array.from(document.querySelectorAll("[data-mega-panel]"));
-  let hideTimeout: ReturnType<typeof setTimeout> | undefined;
+    menu.dataset.initialized = "true";
 
-  function hideAllPanels() {
-    panels.forEach((panel) => panel.classList.add("hidden"));
-    wrappers.forEach((wrapper) => {
-      const trigger = wrapper.querySelector("[data-mega-trigger]");
-      trigger?.setAttribute("aria-expanded", "false");
+    const backdrop = menu.querySelector<HTMLButtonElement>(
+      "[data-close-mobile-menu]"
+    );
+
+    const closeMenu = () => {
+      menu.open = false;
+    };
+
+    backdrop?.addEventListener("click", closeMenu);
+
+    menu.querySelectorAll<HTMLAnchorElement>("nav a").forEach(
+      (link) => {
+        link.addEventListener("click", closeMenu);
+      }
+    );
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && menu.open) {
+        closeMenu();
+
+        menu.querySelector<HTMLElement>("summary")?.focus();
+      }
+    });
+
+    const desktopQuery = window.matchMedia(
+      "(min-width: 1024px)"
+    );
+
+    desktopQuery.addEventListener("change", (event) => {
+      if (event.matches) {
+        closeMenu();
+      }
     });
   }
 
-  wrappers.forEach((wrapper) => {
-    const trigger = wrapper.querySelector("[data-mega-trigger]");
-    const slug = trigger?.getAttribute("data-mega-trigger");
-    const panel = slug ? document.getElementById(`mega-panel-${slug}`) : null;
+  document.addEventListener(
+    "astro:page-load",
+    initMarketMobileMenu
+  );
 
-    if (!trigger || !panel) return;
-
-    const show = () => {
-      clearTimeout(hideTimeout);
-      hideAllPanels();
-      panel.classList.remove("hidden");
-      trigger.setAttribute("aria-expanded", "true");
-    };
-
-    const scheduleHide = () => {
-      clearTimeout(hideTimeout);
-      hideTimeout = setTimeout(() => {
-        hideAllPanels();
-      }, 150);
-    };
-
-    wrapper.addEventListener("mouseenter", show);
-    wrapper.addEventListener("mouseleave", scheduleHide);
-    panel.addEventListener("mouseenter", show);
-    panel.addEventListener("mouseleave", scheduleHide);
-
-    trigger.addEventListener("focus", show);
-
-    wrapper.addEventListener("focusout", (event) => {
-      const target = event instanceof FocusEvent ? event.relatedTarget : null;
-      if (!(target instanceof Node) || (!wrapper.contains(target) && !panel.contains(target))) {
-        scheduleHide();
-      }
-    });
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      hideAllPanels();
-    }
-  });
+  initMarketMobileMenu();
 </script>

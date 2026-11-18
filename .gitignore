@@ -30,4 +30,4 @@ scripts/
 
 test-results/
 
-tests/
+tests/.wrangler/

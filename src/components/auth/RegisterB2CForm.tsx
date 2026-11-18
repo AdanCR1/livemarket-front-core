@@ -207,14 +207,14 @@ export default function RegisterB2CForm() {
             </button>
 
             <p className="auth-register">
-                ¿Ya tenés cuenta?{" "}
-                <a href="/login">Iniciá sesión</a>
+                ¿Ya tienes una cuenta?{" "}
+                <a className="inline-block px-1 py-2 text-sm" href="/login">Inicia sesión</a>
             </p>
 
             <p className="auth-register" style={{ marginTop: "-10px" }}>
                 ¿Tenés una tienda?{" "}
-                <a href="/registro/negocio">
-                    Registrate como negocio
+                <a className="inline-block px-1 py-2 text-sm" href="/registro/negocio">
+                    Regístrate como negocio
                 </a>
             </p>
         </form>

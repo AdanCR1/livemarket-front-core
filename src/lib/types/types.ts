@@ -89,6 +89,7 @@ export interface ProductWithMedia extends Product {
 export interface ServiceResult<T> {
   data: T | null;
   error: string | null;
+  status?: number;
 }
 
 // ─── Autenticación (MS1) ───

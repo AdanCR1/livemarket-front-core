@@ -6,7 +6,6 @@ import {
   FiLock,
   FiMapPin,
   FiShoppingBag,
-  FiChevronDown,
   FiCheck,
   FiArrowLeft,
   FiArrowRight,
@@ -14,28 +13,17 @@ import {
   FiUploadCloud,
   FiImage,
 } from "react-icons/fi";
-import { AuthService } from "../../lib/types/services";
+import { AuthService, TECHNOLOGY, SUCRE_CITY_ID } from "../../lib/types/services";
 import { establishSession } from "../../components/auth/establishSession";
-import { MOCK_DEPARTMENTS, MOCK_CITIES } from "../../lib/mock-data";
 import { MS3_URL } from "../../lib/constants";
-import type { RegisterB2BPayload, NicheSlug } from "../../lib/types/types";
+import type { RegisterB2BPayload } from "../../lib/types/types";
 
-const NICHE_LABELS: Record<NicheSlug, string> = {
-  gastronomia: "Gastronomía",
-  tecnologia: "Tecnología",
-  ropa: "Ropa",
-  jugueteria: "Juguetería",
-  otros: "Otros",
-};
 
 interface FormState {
   email: string;
   password: string;
   confirmPassword: string;
   store_name: string;
-  business_model: NicheSlug;
-  department_id: string;
-  city_id: string;
   local_address: string;
   logo_url: string;
 }
@@ -46,21 +34,21 @@ const STEPS = [
   {
     id: 1,
     title: "Datos de tu tienda",
-    subtitle: "Contanos sobre tu negocio",
+    subtitle: "Cuéntanos sobre tu negocio",
     icon: <FiShoppingBag size={20} />,
-    fields: ["store_name", "business_model"],
+    fields: ["store_name"],
   },
   {
     id: 2,
     title: "Ubicación",
     subtitle: "¿Dónde está tu tienda?",
     icon: <FiMapPin size={20} />,
-    fields: ["department_id", "city_id", "local_address"],
+    fields: ["local_address"],
   },
   {
     id: 3,
     title: "Tu cuenta",
-    subtitle: "Creá tus credenciales de acceso",
+    subtitle: "Crea tus credenciales de acceso",
     icon: <FiBriefcase size={20} />,
     fields: ["email", "password", "confirmPassword"],
   },
@@ -73,9 +61,6 @@ export default function RegisterB2BForm() {
     password: "",
     confirmPassword: "",
     store_name: "",
-    business_model: "gastronomia",
-    department_id: "",
-    city_id: "",
     local_address: "",
     logo_url: "",
   });
@@ -93,9 +78,6 @@ export default function RegisterB2BForm() {
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [animationDirection, setAnimationDirection] = useState<"forward" | "backward">("forward");
 
-  const filteredCities = form.department_id
-    ? MOCK_CITIES.filter((c) => c.department_id === Number(form.department_id))
-    : [];
 
   function handleLogoSelect(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -124,19 +106,13 @@ export default function RegisterB2BForm() {
       }
     }
 
-    if (stepFields.includes("department_id") && !form.department_id) {
-      errors.department_id = "Seleccioná un departamento";
-    }
 
-    if (stepFields.includes("city_id") && !form.city_id) {
-      errors.city_id = "Seleccioná una ciudad";
-    }
 
     if (stepFields.includes("email")) {
       if (!form.email.trim()) {
         errors.email = "El correo es requerido";
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-        errors.email = "Ingresá un correo válido";
+        errors.email = "Ingresa un correo válido";
       }
     }
 
@@ -150,7 +126,7 @@ export default function RegisterB2BForm() {
 
     if (stepFields.includes("confirmPassword")) {
       if (!form.confirmPassword) {
-        errors.confirmPassword = "Confirmá tu contraseña";
+        errors.confirmPassword = "Confirma tu contraseña";
       } else if (form.password !== form.confirmPassword) {
         errors.confirmPassword = "Las contraseñas no coinciden";
       }
@@ -184,11 +160,6 @@ export default function RegisterB2BForm() {
 
     if (!validateStep(currentStep)) return;
 
-    const cityId = Number(form.city_id);
-    if (!Number.isInteger(cityId) || cityId < 1) {
-      setError("Seleccioná una ciudad válida.");
-      return;
-    }
 
     setLoading(true);
 
@@ -218,8 +189,8 @@ export default function RegisterB2BForm() {
         email: form.email.trim(),
         password: form.password,
         store_name: form.store_name.trim(),
-        business_model: form.business_model,
-        city_id: cityId,
+        business_model: TECHNOLOGY,
+        city_id: SUCRE_CITY_ID,
         local_address: form.local_address?.trim() || undefined,
         logo_url: uploadedLogoUrl || undefined,
       };
@@ -258,12 +229,6 @@ export default function RegisterB2BForm() {
     }
   }
 
-  function handleDepartmentChange(value: string) {
-    setForm((prev) => ({ ...prev, department_id: value, city_id: "" }));
-    if (fieldErrors.department_id) {
-      setFieldErrors((prev) => ({ ...prev, department_id: undefined }));
-    }
-  }
 
   if (success) {
     return (
@@ -274,7 +239,7 @@ export default function RegisterB2BForm() {
         <h3 style={{ margin: "0 0 8px", color: "var(--auth-text)", fontSize: "18px" }}>
           ¡Tienda registrada!
         </h3>
-        <p>Tu tienda fue registrada correctamente. Ya podés iniciar sesión.</p>
+        <p>Tu tienda fue registrada correctamente. Ya puedes iniciar sesión.</p>
         <a href="/login" className="auth-button">Iniciar sesión</a>
       </div>
     );
@@ -344,36 +309,7 @@ export default function RegisterB2BForm() {
                 )}
               </div>
 
-              <div className="auth-field">
-                <label htmlFor="business_model" className="auth-label">
-                  Rubro <span className="b2b-required">*</span>
-                </label>
-                <div className="auth-input-wrapper">
-                  <select
-                    id="business_model"
-                    required
-                    className="auth-input"
-                    style={{ appearance: "none", cursor: "pointer" }}
-                    value={form.business_model}
-                    onChange={(e) => updateField("business_model", e.target.value as NicheSlug)}
-                  >
-                    {Object.entries(NICHE_LABELS).map(([slug, label]) => (
-                      <option key={slug} value={slug}>{label}</option>
-                    ))}
-                  </select>
-                  <FiChevronDown
-                    size={15}
-                    style={{
-                      position: "absolute",
-                      right: "13px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#7893aa",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </div>
-              </div>
+              <p className="text-sm text-market-muted">Comercio de tecnología</p>
 
               {/* Selector de Logo de la tienda */}
               <div className="auth-field">
@@ -393,7 +329,7 @@ export default function RegisterB2BForm() {
                     <img
                       src={logoPreview}
                       alt="Logo preview"
-                      className="w-12 h-12 object-cover rounded-lg border border-[rgba(113,177,220,0.4)]"
+                      className="w-12 h-12 object-contain rounded-lg border border-[rgba(113,177,220,0.4)]"
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-[rgba(24,194,232,0.1)] text-theme-primary flex items-center justify-center">
@@ -417,82 +353,7 @@ export default function RegisterB2BForm() {
           {/* PASO 2: Ubicación */}
           {currentStep === 1 && (
             <>
-              <div className="auth-field">
-                <label htmlFor="department_id" className="auth-label">
-                  Departamento <span className="b2b-required">*</span>
-                </label>
-                <div className="auth-input-wrapper">
-                  <select
-                    id="department_id"
-                    required
-                    className={`auth-input ${fieldErrors.department_id ? "b2b-input-error" : ""}`}
-                    style={{ appearance: "none", cursor: "pointer" }}
-                    value={form.department_id}
-                    onChange={(e) => handleDepartmentChange(e.target.value)}
-                  >
-                    <option value="">Seleccioná un departamento</option>
-                    {MOCK_DEPARTMENTS.map((dept) => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
-                  </select>
-                  <FiChevronDown
-                    size={15}
-                    style={{
-                      position: "absolute",
-                      right: "13px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#7893aa",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </div>
-                {fieldErrors.department_id && (
-                  <p className="b2b-field-error">{fieldErrors.department_id}</p>
-                )}
-              </div>
-
-              <div className="auth-field">
-                <label htmlFor="city_id" className="auth-label">
-                  Ciudad <span className="b2b-required">*</span>
-                </label>
-                <div className="auth-input-wrapper">
-                  <select
-                    id="city_id"
-                    required
-                    disabled={!form.department_id}
-                    className={`auth-input ${fieldErrors.city_id ? "b2b-input-error" : ""}`}
-                    style={{
-                      appearance: "none",
-                      cursor: form.department_id ? "pointer" : "not-allowed",
-                      opacity: form.department_id ? 1 : 0.5,
-                    }}
-                    value={form.city_id}
-                    onChange={(e) => updateField("city_id", e.target.value)}
-                  >
-                    <option value="">
-                      {!form.department_id ? "Primero seleccioná un departamento" : "Seleccioná una ciudad"}
-                    </option>
-                    {filteredCities.map((city) => (
-                      <option key={city.id} value={city.id}>{city.name}</option>
-                    ))}
-                  </select>
-                  <FiChevronDown
-                    size={15}
-                    style={{
-                      position: "absolute",
-                      right: "13px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: "#7893aa",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </div>
-                {fieldErrors.city_id && (
-                  <p className="b2b-field-error">{fieldErrors.city_id}</p>
-                )}
-              </div>
+              <p className="text-sm text-market-muted">Ubicación comercial: Sucre, Chuquisaca</p>
 
               <div className="auth-field">
                 <label htmlFor="local_address" className="auth-label">
@@ -661,10 +522,10 @@ export default function RegisterB2BForm() {
 
       <div className="b2b-links">
         <p className="auth-register">
-          ¿Sos comprador? <a href="/registro">Registrate acá</a>
+          ¿Eres comprador? <a className="inline-block px-1 py-2 text-sm" href="/registro">Regístrate aquí</a>
         </p>
         <p className="auth-register" style={{ marginTop: "-5px" }}>
-          ¿Ya tenés cuenta? <a href="/login">Iniciá sesión</a>
+          ¿Ya tienes una cuenta? <a className="inline-block px-1 py-2 text-sm" href="/login">Inicia sesión</a>
         </p>
       </div>
     </div>

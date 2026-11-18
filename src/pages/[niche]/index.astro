@@ -3,6 +3,7 @@
  * Exploración del Rubro — Grilla de Tiendas
  * Ruta: /[niche] (ej: /gastronomia)
  */
+import NotFound from "../404.astro";
 import Layout from "../../layouts/Layout.astro";
 import { StoreGrid } from "../../components/niche/StoreGrid";
 import { getNicheConfig } from "../../lib/niches";
@@ -10,19 +11,11 @@ import { NicheIconRender } from "../../components/niche/NicheIconRender";
 
 const { niche } = Astro.params;
 
-// Si coincide con alguna página raíz, delegar inmediatamente
-const RESERVED = ["panel", "perfil", "login", "registro", "api", "tets"];
-if (niche && RESERVED.includes(niche)) {
-  return Astro.rewrite(`/${niche}`);
-}
-
-const nicheConfig = getNicheConfig(niche);
-
-if (!nicheConfig) {
-  return new Response("Nicho no válido", { status: 404 });
-}
+const nicheConfig = getNicheConfig("tecnologia")!;
+if (niche !== "tecnologia") Astro.response.status = 404;
 ---
 
+{niche !== "tecnologia" ? <NotFound /> :
 <Layout
   title={nicheConfig.label}
   description={nicheConfig.description}
@@ -86,4 +79,4 @@ if (!nicheConfig) {
       <StoreGrid client:load nicheSlug={nicheConfig.slug} />
     </section>
   </main>
-</Layout>
+</Layout>}

@@ -1,0 +1,84 @@
+---
+import { searchScore } from "../lib/product-search";
+import Layout from "../layouts/Layout.astro";
+import { ProductCard } from "../components/store/StoreCatalog";
+import { InventoryService, StoreService, TECHNOLOGY, SUCRE_CITY_ID, normalizeSearch } from "../lib/types/services";
+
+const params = Astro.url.searchParams;
+const q = (params.get("q") ?? "").trim().slice(0, 120);
+const zone = (params.get("zona") ?? "").trim().slice(0, 120);
+const category = (params.get("categoria") ?? "").trim().slice(0, 120);
+const directory = await StoreService.getStoresByNiche(TECHNOLOGY);
+const address = normalizeSearch(zone);
+const stores = (directory.data ?? []).filter(store => store.business_model === TECHNOLOGY &&
+  store.city_id === SUCRE_CITY_ID &&
+  normalizeSearch(store.local_address ?? "").includes(address));
+const results = [];
+// Limit concurrent requests while reading each store's existing catalog.
+for (let offset = 0; offset < stores.length; offset += 4) {
+  const batch = await Promise.all(stores.slice(offset, offset + 4).map(async store => ({
+    store,
+    catalog: await InventoryService.getProductsByStore(store.profile_id),
+  })));
+  results.push(...batch);
+}
+const incomplete = Boolean(directory.error) || results.some(({ catalog }) => catalog.error || !Array.isArray(catalog.data));
+const rows = results.flatMap(({ store, catalog }) => (catalog.data ?? [])
+  .filter(product => product.business_model === TECHNOLOGY && product.store_id === store.profile_id)
+  .map(product => ({ store, product })));
+const categories = [...new Set(rows.flatMap(({ product }) =>
+  typeof product.attributes?.categoria === "string" && product.attributes.categoria.trim()
+    ? [product.attributes.categoria] : []))].sort((a, b) => a.localeCompare(b, "es"));
+const matches = rows.flatMap(row => {
+  const { product } = row;
+  if (category && product.attributes?.categoria !== category) return [];
+  const fields = [product.name, product.description, product.attributes?.categoria,
+    product.attributes?.marca, product.attributes?.modelo];
+  const score = searchScore(q, fields.map(value => typeof value === "string" ? value : ""));
+  return score === null ? [] : [{ ...row, score }];
+}).sort((a, b) => b.score - a.score || a.product.id.localeCompare(b.product.id));
+const pageSize = 24;
+const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+const requested = Number(params.get("pagina"));
+const current = Number.isSafeInteger(requested) ? Math.max(1, Math.min(totalPages, requested)) : 1;
+const pageHref = (page: number) => "/buscar?" + new URLSearchParams({ q, zona: zone, categoria: category, pagina: String(page) });
+Astro.response.headers.set("Cache-Control", "no-store");
+if (incomplete && rows.length === 0) Astro.response.status = 503;
+---
+<Layout title="Buscar productos" description="Catálogo de tecnología de MarketCloud" themeClass="theme-tecnologia">
+  <main class="mx-auto min-h-screen max-w-7xl space-y-6 px-4 py-10">
+    <h1 class="text-3xl font-display font-bold">Productos tecnológicos</h1>
+    <form action="/buscar" method="get" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <label class="flex flex-col gap-1">Producto
+        <input class="rounded-xl border border-market-border bg-market-card p-3" type="search" name="q" maxlength="120" value={q} />
+      </label>
+      <label class="flex flex-col gap-1">Buscar por dirección o zona
+        <input class="rounded-xl border border-market-border bg-market-card p-3" type="search" name="zona" maxlength="120" value={zone} />
+      </label>
+      <label id="categorias" class="flex flex-col gap-1">Categoría
+        <select class="rounded-xl border border-market-border bg-market-card p-3" name="categoria">
+          <option value="">Todas las categorías</option>
+          {category && !categories.includes(category) && <option selected value={category}>{category}</option>}
+          {categories.map(value => <option value={value} selected={category === value}>{value}</option>)}
+        </select>
+      </label>
+      <div class="flex items-end gap-3">
+        <button class="rounded-xl bg-theme-primary px-5 py-3 font-semibold">Buscar</button>
+        <a href="/buscar" class="py-3 underline">Limpiar</a>
+      </div>
+    </form>
+    {incomplete && <p role="alert" class="text-amber-300">No se pudieron consultar todos los catálogos. <a class="underline" href={pageHref(current)}>Reintentar</a></p>}
+    {categories.length === 0 && !incomplete && <p class="text-sm text-market-muted">Los productos disponibles aún no tienen categorías asignadas.</p>}
+    {matches.length === 0 && !incomplete && <p role="status" class="py-8 text-market-muted">No se encontraron productos con estos filtros.</p>}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {matches.slice((current - 1) * pageSize, current * pageSize).map(({ product, store }) =>
+        <ProductCard product={product} href={`/tecnologia/${store.profile_id}?${new URLSearchParams({ producto: product.id })}`} />
+      )}
+    </div>
+    {totalPages > 1 && <nav class="flex flex-wrap gap-4" aria-label="Páginas de resultados">
+      {current > 1 && <a class="underline" href={pageHref(current - 1)}>Anterior</a>}
+      <span>Página {current} de {totalPages}</span>
+      {current < totalPages && <a class="underline" href={pageHref(current + 1)}>Siguiente</a>}
+    </nav>}
+  </main>
+</Layout>

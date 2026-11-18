@@ -164,8 +164,8 @@ export default function LoginForm() {
             </div>
 
             <p className="auth-register">
-                ¿No tenés cuenta?{" "}
-                <a href="/registro">Registrate</a>
+                ¿No tienes una cuenta?{" "}
+                <a className="inline-block px-1 py-2 text-sm" href="/registro">Regístrate</a>
             </p>
         </form>
     );

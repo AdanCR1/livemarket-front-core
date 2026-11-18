@@ -2,6 +2,10 @@
 // Cada función devuelve {data, error} — nunca lanza excepciones.
 // En desarrollo, usa datos mock SOLO para departamentos/ciudades.
 
+export const TECHNOLOGY = "tecnologia";
+export const SUCRE_CITY_ID = 23; // MS1: Chuquisaca (7) → Sucre (23)
+export const normalizeSearch = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+
 import { MS1_URL, MS2_URL } from "../constants";
 import { MOCK_DEPARTMENTS, MOCK_CITIES } from "../mock-data";
 import type {
@@ -49,6 +53,7 @@ async function safeFetch<T>(url: string, options: FetchOptions = {}): Promise<Se
 
     const response = await fetch(url, {
       method,
+      cache: "no-store",
       signal: controller.signal,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -63,6 +68,7 @@ async function safeFetch<T>(url: string, options: FetchOptions = {}): Promise<Se
       const message = envelope.detalle
         ? `${envelope.error ?? "Error"}: ${envelope.detalle}`
         : (envelope.error ?? `HTTP ${response.status}: ${response.statusText}`);
+      if (response.status === 404) return { data: null, error: message, status: 404 };
       throw new Error(message);
     }
 
@@ -127,8 +133,10 @@ function withGeoFallback<T>(result: ServiceResult<T>, mockData: T): ServiceResul
 // ─── MS1: Auth / Perfiles / Tiendas ───
 
 export const StoreService = {
+  setLive: (isLive: boolean) => safeFetch<{profile_id: string; is_live: boolean}>(
+    "/api/panel/live", { method: "PATCH", body: { is_live: isLive } }),
   getStoresByNiche: async (niche: string): Promise<ServiceResult<B2BStore[]>> => {
-    return safeFetch<B2BStore[]>(`${MS1_URL}/api/stores?niche=${niche}`);
+    return safeFetch<B2BStore[]>(`${MS1_URL}/api/stores?niche=${encodeURIComponent(niche)}`);
   },
 
   getStoreById: async (storeId: string): Promise<ServiceResult<B2BStore>> => {
@@ -165,9 +173,11 @@ export const InventoryService = {
   },
 
   getLiveProducts: async (storeId: string): Promise<ServiceResult<ProductWithMedia[]>> => {
-    return safeFetch<ProductWithMedia[]>(
+    const result = await safeFetch<{is_pinned: boolean; products: ProductWithMedia | null}[]>(
       `${MS2_URL}/api/catalog/public/store/${storeId}/live`
     );
+    return { error: result.error, data: result.data?.flatMap(row =>
+      row.is_pinned === true && row.products?.store_id === storeId ? [row.products] : []) ?? null };
   },
 
   createProduct: async (

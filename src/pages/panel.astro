@@ -16,12 +16,13 @@ if (!session || session.role !== "B2B") {
 }
 
 const storeId = session.store_id;
+Astro.response.headers.set("Cache-Control", "no-store");
 const storeResult = await StoreService.getStoreById(storeId);
 const store = storeResult.data;
 
 const niche = session.business_model ?? store?.business_model ?? "otros";
 const storeName = store?.store_name ?? "Mi Tienda";
-const isLive = store?.is_live ?? false;
+const isLive = store?.is_live === true;
 ---
 
 <!doctype html>
@@ -45,6 +46,7 @@ const isLive = store?.is_live ?? false;
       storeName={storeName}
       niche={niche}
       initialIsLive={isLive}
+      initialLiveError={storeResult.error}
       userEmail={session.email}
     />
   </body>

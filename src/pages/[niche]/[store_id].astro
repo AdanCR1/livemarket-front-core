@@ -4,12 +4,13 @@
  * Ruta: /[niche]/[store_id] (ej: /gastronomia/store-001)
  * SSR: esta página se renderiza dinámicamente porque los store_id son desconocidos en build time.
  */
+import NotFound from "../404.astro";
 import Layout from "../../layouts/Layout.astro";
 import { StoreCatalog } from "../../components/store/StoreCatalog";
 import { FallbackImage } from "../../components/ui/FallbackImage";
 import { LiveBadge } from "../../components/ui/LiveBadge";
 import { getNicheConfig } from "../../lib/niches";
-import { StoreService } from "../../lib/types/services";
+import { StoreService, InventoryService } from "../../lib/types/services";
 import { buildMediaUrl } from "../../lib/constants";
 
 const { niche, store_id } = Astro.params;
@@ -19,27 +20,29 @@ const buyerAccess = !session ? "guest"
   : session.role === "B2C" || session.role === "B2B" ? "buyer"
   : "restricted";
 
-// 1. Descartar de inmediato si es una ruta del sistema
-const RESERVED = ["panel", "perfil", "login", "registro", "api"];
-if (niche && RESERVED.includes(niche)) {
-  return new Response(null, { status: 404 });
-}
-
-// 2. Validar nicho
-const nicheConfig = getNicheConfig(niche);
-if (!nicheConfig || !store_id) {
-  return Astro.redirect("/404");
-}
-
-// 3. Fetch de datos de la tienda (server-side)
-const storeResult = await StoreService.getStoreById(store_id);
+const nicheConfig = getNicheConfig("tecnologia")!;
+const storeResult = niche === "tecnologia" && store_id && /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(store_id)
+  ? await StoreService.getStoreById(store_id)
+  : { data: null, status: 404 };
 const store = storeResult.data;
-const storeError = storeResult.error;
-
+Astro.response.headers.set("Cache-Control", "no-store");
+const liveRequested = Astro.url.searchParams.get("live") === "true";
+const productId = Astro.url.searchParams.get("producto") ?? undefined;
+const catalog = store?.business_model === "tecnologia" && productId
+  ? await InventoryService.getProductsByStore(store.profile_id)
+  : undefined;
+const initialProducts = catalog?.data?.filter(product =>
+  product.business_model === "tecnologia" && product.store_id === store?.profile_id);
+const missing = storeResult.status === 404 || Boolean(store && store.business_model !== "tecnologia") ||
+  Boolean(initialProducts && !initialProducts.some(product => product.id === productId));
+const unavailable = !store || Boolean(catalog && !initialProducts);
+if (missing) Astro.response.status = 404;
+else if (unavailable) Astro.response.status = 503;
 const storeName = store?.store_name ?? "Tienda";
 const logoUrl = store?.logo_url ? buildMediaUrl(store.logo_url) : undefined;
 ---
 
+{missing ? <NotFound /> : unavailable || !store ? <Layout title="Tienda no disponible"><main class="mx-auto max-w-7xl p-8"><p>No pudimos consultar la tienda.</p><a class="underline" href={Astro.url.pathname + Astro.url.search}>Reintentar</a></main></Layout> :
 <Layout
   title={storeName}
   description={`Catálogo de productos de ${storeName}. ${nicheConfig.description}`}
@@ -113,7 +116,7 @@ const logoUrl = store?.logo_url ? buildMediaUrl(store.logo_url) : undefined;
                   src={logoUrl}
                   alt={`Logo de ${storeName}`}
                   fallbackName={storeName}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
 
@@ -180,12 +183,15 @@ const logoUrl = store?.logo_url ? buildMediaUrl(store.logo_url) : undefined;
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <StoreCatalog
         client:load
-        storeId={store_id}
+        storeId={store.profile_id}
+        productId={productId}
+        initialProducts={initialProducts}
         buyerAccess={buyerAccess}
         loginUrl={`/login?next=${encodeURIComponent(Astro.url.pathname)}`}
         storeName={storeName}
+        liveRequested={liveRequested}
         isLive={store?.is_live ?? false}
       />
     </section>
   </main>
-</Layout>
+</Layout>}

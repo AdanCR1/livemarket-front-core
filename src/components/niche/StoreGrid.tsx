@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { StoreCard } from "./StoreCard";
-import { FilterBar } from "./FilterBar";
+
 import { SkeletonLoader } from "../ui/SkeletonLoader";
 import { ErrorBoundary } from "../ui/ErrorBoundary";
-import { StoreService } from "../../lib/types/services";
+import { StoreService, SUCRE_CITY_ID, normalizeSearch } from "../../lib/types/services";
 import type { B2BStore } from "../../lib/types/types";
 import { FiSearch } from "react-icons/fi";
 
@@ -19,56 +19,52 @@ interface StoreGridProps {
  */
 export function StoreGrid({ nicheSlug }: StoreGridProps) {
   const [stores, setStores] = useState<B2BStore[]>([]);
-  const [filteredStores, setFilteredStores] = useState<B2BStore[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedDept, setSelectedDept] = useState<number | null>(null);
-  const [selectedCity, setSelectedCity] = useState<number | null>(null);
-
+  const [error, setError] = useState(false);
+  const [zone, setZone] = useState("");
+  const [liveOnly, setLiveOnly] = useState(false);
   useEffect(() => {
-    loadStores();
+    const params = new URLSearchParams(window.location.search);
+    setZone(params.get("zona") ?? "");
+    setLiveOnly(params.get("vivo") === "1");
+    let active = true;
+    let reading = false;
+    async function refresh() {
+      if (reading || document.hidden) return;
+      reading = true;
+      const result = await StoreService.getStoresByNiche(nicheSlug);
+      reading = false;
+      if (!active) return;
+      setStores((result.data ?? []).filter(store => store.business_model === nicheSlug && store.city_id === SUCRE_CITY_ID));
+      setError(Boolean(result.error));
+      setLoading(false);
+    }
+    void refresh();
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, [nicheSlug]);
-
-  async function loadStores() {
-    setLoading(true);
-    setError(null);
-    const result = await StoreService.getStoresByNiche(nicheSlug);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      const data = result.data ?? [];
-      setStores(data);
-      setFilteredStores(data);
-    }
-    setLoading(false);
+  function changeFilters(address: string, live: boolean) {
+    setZone(address);
+    setLiveOnly(live);
+    const url = new URL(window.location.href);
+    if (address) url.searchParams.set("zona", address); else url.searchParams.delete("zona");
+    if (live) url.searchParams.set("vivo", "1"); else url.searchParams.delete("vivo");
+    window.history.replaceState(window.history.state, "", url);
   }
-
-  function handleFilter(deptId: number | null, cityId: number | null) {
-    setSelectedDept(deptId);
-    setSelectedCity(cityId);
-
-    let filtered = stores;
-    if (cityId) {
-      filtered = stores.filter((s) => s.city_id === cityId);
-    } else if (deptId) {
-      filtered = stores.filter((s) => s.department_id === deptId);
-    }
-    setFilteredStores(filtered);
-  }
-
+  const filteredStores = stores.filter(store =>
+    normalizeSearch(store.local_address ?? "").includes(normalizeSearch(zone)) &&
+    (!liveOnly || store.is_live === true));
   if (loading) {
     return <SkeletonLoader variant="grid" count={6} message="Cargando tiendas del mercado..." />;
   }
 
   if (error) {
-    return (
-      <SkeletonLoader
-        variant="grid"
-        count={6}
-        isError
-        message={`No pudimos conectar con el servicio de tiendas. Error: ${error}`}
-      />
-    );
+    return <p role="alert">No pudimos consultar las tiendas. <button type="button" className="underline" onClick={() => window.location.reload()}>Reintentar</button></p>;
   }
 
   return (
@@ -76,11 +72,15 @@ export function StoreGrid({ nicheSlug }: StoreGridProps) {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Sidebar de filtros */}
         <aside className="w-full lg:w-72 shrink-0">
-          <FilterBar
-            onFilter={handleFilter}
-            selectedDept={selectedDept}
-            selectedCity={selectedCity}
-          />
+          <div className="space-y-4 rounded-xl border border-market-border p-4">
+            <label className="block text-sm">Buscar por dirección o zona
+              <input type="search" value={zone} maxLength={120} onChange={event => changeFilters(event.target.value, liveOnly)}
+                className="mt-2 w-full rounded-lg border border-market-border bg-market-card p-3" />
+            </label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={liveOnly}
+              onChange={event => changeFilters(zone, event.target.checked)} /> En vivo ahora</label>
+            <button type="button" className="text-sm underline" onClick={() => changeFilters("", false)}>Limpiar filtros</button>
+          </div>
         </aside>
 
         {/* Grilla de tiendas */}
@@ -107,7 +107,7 @@ export function StoreGrid({ nicheSlug }: StoreGridProps) {
                 Sin resultados
               </h3>
               <p className="text-market-muted text-sm text-center max-w-sm">
-                No se encontraron tiendas con estos filtros. Intenta con otros criterios.
+                {liveOnly ? "No hay tiendas en vivo con estos filtros." : "No se encontraron tiendas con estos filtros."}
               </p>
             </div>
           ) : (

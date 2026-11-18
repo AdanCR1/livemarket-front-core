@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ProductCard } from "../store/StoreCatalog";
 import { getPanelTheme } from "../../lib/panel-themes";
 import { formatBolivianos } from "./ProductList";
 import type { ProductWithMedia } from "../../lib/types/types";
@@ -7,6 +8,11 @@ interface LiveManagerProps {
   storeName: string;
   niche: string;
   isLive: boolean;
+  storeId: string;
+  liveBusy: boolean;
+  liveError: string | null;
+  previewLoading: boolean;
+  previewError: string | null;
   allProducts: ProductWithMedia[];
   pinnedProducts: ProductWithMedia[];
   onToggleLive: (nextLiveState: boolean) => void;
@@ -16,12 +22,30 @@ interface LiveManagerProps {
 export function LiveManager({
   storeName,
   niche,
-  isLive,
+  isLive, storeId, liveBusy, liveError, previewLoading, previewError,
   allProducts,
   pinnedProducts,
   onToggleLive,
   onTogglePinProduct,
 }: LiveManagerProps) {
+  const path = `/tecnologia/${encodeURIComponent(storeId)}?live=true`;
+  const [url, setUrl] = useState(path);
+  const [copy, setCopy] = useState<"idle" | "done" | "error">("idle");
+  useEffect(() => setUrl(new URL(path, window.location.origin).href), [path]);
+  useEffect(() => {
+    if (copy !== "done") return;
+    const timer = setTimeout(() => setCopy("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [copy]);
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(new URL(path, window.location.origin).href);
+      setCopy("done");
+    } catch {
+      setCopy("error");
+    }
+  }
+
   const theme = getPanelTheme(niche);
   const [showPinSelector, setShowPinSelector] = useState(false);
 
@@ -40,7 +64,7 @@ export function LiveManager({
           Modo Live
         </h1>
         <p className="text-sm text-[var(--panel-muted)] mt-0.5">
-          Gestiona los productos que se muestran en tu sección "En Live" cuando transmitís por TikTok.
+          Destaca productos de tu tienda durante una transmisión externa.
         </p>
       </div>
 
@@ -71,6 +95,7 @@ export function LiveManager({
 
         <button
           type="button"
+          disabled={liveBusy}
           onClick={() => onToggleLive(!isLive)}
           className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
             isLive
@@ -83,6 +108,7 @@ export function LiveManager({
       </div>
 
       {/* Info para TikTok */}
+      {liveError && <p role="alert" className="text-red-400">{liveError}</p>}
       {isLive && (
         <div
           className="panel-card p-4 border-l-4"
@@ -99,29 +125,21 @@ export function LiveManager({
               <theme.icons.external className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-semibold text-sm mb-1">Enlace para tu live de TikTok</p>
+              <p className="font-semibold text-sm mb-1">Enlace público del Live</p>
+              <p role="status" className="text-xs">{copy === "error" ? "No se pudo copiar. Selecciona el enlace para copiarlo manualmente." : copy === "done" ? "Enlace copiado" : ""}</p>
               <p className="text-xs text-[var(--panel-muted)] mb-2">
-                Compartí este enlace en tu transmisión de TikTok para que los espectadores vean tus productos:
+                Comparte este enlace durante tu transmisión para que los espectadores vean tus productos:
               </p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 px-3 py-2 rounded-lg bg-black/30 text-xs truncate">
-                  {typeof window !== "undefined"
-                    ? `${window.location.origin}/${niche}/${storeName.toLowerCase().replace(/\s+/g, "-")}?live=true`
-                    : `/${niche}/[tu-tienda]?live=true`}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = `${window.location.origin}/${niche}/${storeName.toLowerCase().replace(/\s+/g, "-")}?live=true`;
-                    navigator.clipboard.writeText(url);
-                  }}
+                <a href={path} target="_blank" rel="noreferrer" className="flex-1 break-all text-xs underline">{url}</a>
+                <button type="button" onClick={copyLink}
                   className="px-3 py-2 rounded-lg text-xs font-medium transition-colors"
                   style={{
                     background: `${theme.primaryColor}20`,
                     color: theme.accentColor,
                   }}
                 >
-                  Copiar
+                  {copy === "done" ? "¡Copiado!" : "Copiar enlace"}
                 </button>
               </div>
             </div>
@@ -281,57 +299,17 @@ export function LiveManager({
         </div>
       </div>
 
-      {/* Vista previa */}
-      {isLive && pinnedProducts.length > 0 && (
-        <div className="panel-card p-4 md:p-5">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <theme.icons.eye className="w-4 h-4" style={{ color: theme.accentColor }} />
-            Vista previa de "En Live"
-          </h3>
-          <p className="text-xs text-[var(--panel-muted)] mb-4">
-            Así ven los compradores tu sección de productos en live:
-          </p>
-
-          <div className="rounded-xl overflow-hidden border border-[var(--panel-border)] bg-black/30 p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-xs font-bold text-red-400 uppercase">En Live</span>
-              <span className="text-xs text-[var(--panel-muted)]">— {storeName}</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {pinnedProducts.slice(0, 6).map((prod) => (
-                <div
-                  key={prod.id}
-                  className="rounded-lg overflow-hidden bg-[var(--panel-surface)] border border-[var(--panel-border)]"
-                >
-                  <div className="h-20 bg-black/40 flex items-center justify-center">
-                    <theme.icons.products
-                      className="w-6 h-6 opacity-30"
-                      style={{ color: theme.accentColor }}
-                    />
-                  </div>
-                  <div className="p-2">
-                    <p className="text-xs font-medium truncate">{prod.name}</p>
-                    <p
-                      className="text-xs font-bold"
-                      style={{ color: theme.accentColor }}
-                    >
-                      {formatBolivianos(prod.price)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {pinnedProducts.length > 6 && (
-              <p className="text-xs text-[var(--panel-muted)] text-center mt-3">
-                + {pinnedProducts.length - 6} productos más
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {isLive && <section className="panel-card space-y-3 p-4">
+        <h3 className="font-semibold">Vista previa · {storeName}</h3>
+        <p className="text-sm text-red-400">● En vivo</p>
+        {previewLoading ? <p>Cargando productos fijados…</p> : previewError ?
+          <p role="alert">No se pudieron consultar los productos fijados.</p> :
+          pinnedProducts.length === 0 ? <p>No hay productos fijados.</p> :
+          <div className="grid gap-3 sm:grid-cols-3">
+            {pinnedProducts.map(product => <ProductCard key={product.id} product={product} isLive
+              href={path + "&producto=" + encodeURIComponent(product.id)} />)}
+          </div>}
+      </section>}
     </div>
   );
 }

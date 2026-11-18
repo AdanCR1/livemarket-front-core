@@ -15,8 +15,11 @@ interface StoreCatalogProps {
   storeId: string;
   storeName: string;
   isLive: boolean;
+  liveRequested?: boolean;
   buyerAccess: "guest" | "buyer" | "owner" | "restricted";
   loginUrl: string;
+  productId?: string;
+  initialProducts?: ProductWithMedia[];
 }
 
 function localDateTime(date: Date) {
@@ -25,13 +28,15 @@ function localDateTime(date: Date) {
 
 type SortOption = "recent" | "price-asc" | "price-desc" | "name";
 
-export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl }: StoreCatalogProps) {
+export function StoreCatalog({ storeId, storeName, isLive, liveRequested, buyerAccess, loginUrl, productId, initialProducts }: StoreCatalogProps) {
+  const [liveError, setLiveError] = useState<string | null>(null);
   const [liveProducts, setLiveProducts] = useState<ProductWithMedia[]>([]);
   const [allProducts, setAllProducts] = useState<ProductWithMedia[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Estados del modal de producto seleccionado y checkout
+  const openedFromLink = useRef(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductWithMedia | null>(null);
   const [orderQuantity, setOrderQuantity] = useState(1);
   const [customerName, setCustomerName] = useState("");
@@ -103,19 +108,23 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
 
     const [liveResult, catalogResult] = await Promise.all([
       isLive ? InventoryService.getLiveProducts(storeId) : Promise.resolve({ data: [], error: null }),
-      InventoryService.getProductsByStore(storeId),
+      initialProducts ? Promise.resolve({ data: initialProducts, error: null }) : InventoryService.getProductsByStore(storeId),
     ]);
 
     if (catalogResult.error) {
       setError(catalogResult.error);
     } else {
-      setAllProducts(catalogResult.data ?? []);
+      const products = (catalogResult.data ?? []).filter(product => product.business_model === "tecnologia" && product.store_id === storeId);
+      setAllProducts(products);
+      const target = products.find(product => product.id === productId);
+      if (target && !openedFromLink.current) {
+        openedFromLink.current = true;
+        openProductDetail(target);
+      }
     }
 
-    if (liveResult.data) {
-      setLiveProducts(liveResult.data);
-    }
-
+    setLiveError(liveResult.error);
+    setLiveProducts((liveResult.data ?? []).filter(product => product.business_model === "tecnologia"));
     setLoading(false);
   }
 
@@ -219,6 +228,9 @@ export function StoreCatalog({ storeId, storeName, isLive, buyerAccess, loginUrl
     <ErrorBoundary>
       <div className="space-y-8">
         {/* ═══════ SECCIÓN LIVE ═══════ */}
+        {liveRequested && !isLive && <p role="status">Esta tienda no está transmitiendo ahora.</p>}
+        {isLive && liveError && <p role="alert">No se pudieron cargar los productos fijados.</p>}
+        {isLive && !liveError && liveProducts.length === 0 && <p role="status">No hay productos fijados para este Live.</p>}
         {isLive && liveProducts.length > 0 && (
           <section className="animate-fade-in">
             <div className="flex items-center gap-3 mb-5">
@@ -420,7 +432,7 @@ function ProductDetailModal({
   }).format(product.price * orderQuantity)}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label={product.name} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
       <div className="bg-market-card border border-market-border/60 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
         <button
           type="button"
@@ -438,7 +450,7 @@ function ProductDetailModal({
                 src={activeImageUrl}
                 alt={product.name}
                 fallbackName={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               {product.stock <= 5 && (
                 <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-amber-500/20 border border-amber-400/40 text-amber-300">
@@ -466,7 +478,7 @@ function ProductDetailModal({
                         src={thumbUrl}
                         alt=""
                         fallbackName={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain"
                       />
                     </button>
                   );
@@ -651,10 +663,11 @@ function ProductDetailModal({
 interface ProductCardProps {
   product: ProductWithMedia;
   isLive?: boolean;
-  onClick: () => void;
+  onClick?: () => void;
+  href?: string;
 }
 
-function ProductCard({ product, isLive = false, onClick }: ProductCardProps) {
+export function ProductCard({ product, isLive = false, onClick, href }: ProductCardProps) {
   const rawList = (product as any).media ?? (product as any).product_media ?? [];
   const sortedMedia = Array.isArray(rawList)
     ? [...rawList].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
@@ -669,10 +682,13 @@ function ProductCard({ product, isLive = false, onClick }: ProductCardProps) {
     maximumFractionDigits: 2,
   }).format(product.price)}`;
 
+  const Card = href ? "a" : "button";
   return (
-    <div
+    <Card
+      href={href}
+      type={href ? undefined : "button"}
       onClick={onClick}
-      className={`group relative flex flex-col overflow-hidden rounded-xl border transition-all duration-300 cursor-pointer backdrop-blur-md ${isLive
+      className={`group relative flex flex-col overflow-hidden rounded-xl border text-left no-underline transition-all duration-300 cursor-pointer backdrop-blur-md ${isLive
           ? "border-live-red/30 hover:border-live-red/60 bg-[var(--theme-surface-alt)]/70 shadow-lg shadow-live-red/5"
           : "border-[var(--theme-primary)]/20 hover:border-[var(--theme-primary)]/60 bg-[var(--theme-surface-alt)]/70 hover:bg-[var(--theme-surface-alt)]/90 hover:-translate-y-1 shadow-md"
         }`}
@@ -724,6 +740,6 @@ function ProductCard({ product, isLive = false, onClick }: ProductCardProps) {
           Ver detalles →
         </span>
       </div>
-    </div>
+    </Card>
   );
 }

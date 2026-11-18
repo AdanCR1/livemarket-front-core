@@ -1,7 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { NICHES } from "../lib/niches";
-import { SITE_NAME } from "../lib/constants";
+
 import {
   FiSearch,
   FiArrowRight,
@@ -12,7 +11,59 @@ import {
   FiTrendingUp,
   FiCheckCircle,
   FiUsers,
+  FiSmartphone,
+  FiMonitor,
+  FiTablet,
+  FiCpu,
 } from "react-icons/fi";
+
+// ============================================
+// CONFIGURACIÓN DE CATEGORÍAS (NICHOS)
+// ============================================
+// Para agregar/quitar categorías solo edita este arreglo.
+// Las imágenes son de Unsplash (licencia gratuita, sin atribución requerida).
+const CATEGORIES = [
+  {
+    slug: "celulares",
+    label: "Celulares",
+    icon: FiSmartphone,
+    active: true,
+    description:
+      "Smartphones de última generación, reacondicionados certificados y accesorios originales. Encuentra el equipo perfecto al mejor precio.",
+    image:
+      "img/celulares.avif",
+  },
+  {
+    slug: "laptops",
+    label: "Laptops",
+    icon: FiMonitor,
+    active: true,
+    description:
+      "Portátiles para trabajo, estudio y gaming. Desde ultraligeras hasta estaciones de trabajo de alto rendimiento.",
+    image:
+      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?q=80&w=1920&auto=format&fit=crop",
+  },
+  {
+    slug: "tablets",
+    label: "Tablets",
+    icon: FiTablet,
+    active: true,
+    description:
+      "Tablets para creatividad, productividad y entretenimiento. Incluye modelos con stylus y teclado desmontable.",
+    image:
+      "img/tablets.avif",
+  },
+  {
+    slug: "perifericos",
+    label: "Periféricos",
+    icon: FiCpu,
+    active: true,
+    description:
+      "Teclados mecánicos, ratones de precisión, audífonos, monitores y todo lo que necesitas para tu equipo.",
+    image:
+      "https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?q=80&w=1920&auto=format&fit=crop",
+  },
+];
 
 const steps = [
   {
@@ -53,7 +104,7 @@ const testimonials = [
     name: "Laura Méndez",
     role: "Gerente de Compras",
     quote:
-      "La variedad de nichos y la calidad de los productos superaron mis expectativas. 100% recomendado.",
+      "La variedad de productos tecnológicos y la calidad de los productos superaron mis expectativas. 100% recomendado.",
     avatar: "LM",
   },
 ];
@@ -98,18 +149,18 @@ const testimonials = [
             class="inline-flex w-max items-center gap-2 rounded-full border border-theme-primary/30 bg-theme-primary/10 px-4 py-1.5 text-xs sm:text-sm font-medium text-theme-primary mb-6"
           >
             <FiTrendingUp className="w-4 h-4" />
-            Plataforma multi-negocio
+            Tecnología en Sucre
           </div>
 
           <h1
             class="text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight text-market-white leading-tight"
           >
-            Tu negocio tiene un lugar aquí
+            Compra y vende<br />tecnología
           </h1>
 
           <p class="mt-4 text-base sm:text-lg text-market-muted max-w-md">
-            MARKETCLOUD conecta a todos los actores del comercio. Un mismo
-            espacio para comprar, vender y crecer.
+            Encuentra dispositivos electrónicos, componentes y accesorios de
+            tiendas de Sucre.
           </p>
 
           <div class="mt-8">
@@ -125,7 +176,9 @@ const testimonials = [
                 <input
                   type="search"
                   name="q"
-                  placeholder="Busca productos o servicios..."
+                  aria-label="Busca productos tecnológicos"
+                  maxlength="120"
+                  placeholder="Busca productos tecnológicos..."
                   class="w-full rounded-2xl border border-market-border bg-market-card/80 backdrop-blur py-4 pl-12 pr-4 text-market-white placeholder-market-muted/60 outline-none transition-all focus:border-theme-primary/60 focus:ring-2 focus:ring-theme-primary/20"
                 />
               </div>
@@ -162,54 +215,47 @@ const testimonials = [
       </div>
     </section>
 
-    <!-- ===================== NICHOS (SLIDES DINÁMICOS) ===================== -->
+    <!-- ===================== CATEGORÍAS (SLIDES DINÁMICOS) ===================== -->
     {
-      Object.values(NICHES).map((niche, index) => {
-        const NicheIcon = niche.icon;
-        const isActive = niche.active;
-        const bgImages = [
-          "/img/nichos-gastro.avif",
-          "/img/nichos-tech.avif",
-          "/img/nichos-moda.avif",
-          "/img/nichos-jugueteria.avif",
-          "/img/nichos-otros.avif",
-        ];
-        const bgImage = bgImages[index % bgImages.length];
+      CATEGORIES.map((category, index) => {
+        const CategoryIcon = category.icon;
+        const isActive = category.active;
 
         return (
           <section class="scroll-slide relative" data-index={index + 1}>
             <img
-              src={bgImage}
-              alt={niche.label}
+              src={category.image}
+              alt={category.label}
+              loading="lazy"
               class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 zoom-bg"
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
 
             <div class="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-7xl mx-auto w-full fade-content opacity-0 translate-y-8 transition-all duration-700">
               <div class="flex items-center gap-3 mb-4">
-                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm text-white border border-white/20">
-                  <NicheIcon className="w-6 h-6" />
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm text-white border border-white/20">
+                  <CategoryIcon className="w-6 h-6" />
                 </div>
                 <span class="text-sm font-bold tracking-widest uppercase text-theme-primary">
                   {isActive ? "Disponible ahora" : "Próximamente"}
                 </span>
               </div>
 
-              <h1 class="text-5xl md:text-8xl font-black mb-4 leading-none tracking-tighter uppercase text-white">
-                {niche.label}
+              <h1 class="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black mb-4 leading-[1.05] tracking-tighter uppercase text-white break-words">
+                {category.label}
               </h1>
 
               <p class="text-gray-300 max-w-lg text-sm md:text-base mb-8 line-clamp-3">
-                {niche.description}
+                {category.description}
               </p>
 
               <div class="flex items-center gap-4">
                 {isActive ? (
                   <a
-                    href={`/${niche.slug}`}
+                    href={`/buscar?${new URLSearchParams({ q: category.label })}`}
                     class="flex items-center gap-2 bg-white text-black px-6 md:px-8 py-3 md:py-4 rounded-full font-bold hover:bg-gray-200 transition"
                   >
-                    Explorar {niche.label}
+                    Explorar {category.label}
                   </a>
                 ) : (
                   <button
@@ -573,6 +619,7 @@ const testimonials = [
   /* --- CARRUSEL VERTICAL COMPLETO --- */
   .full-page-carousel {
     height: 100vh;
+    height: 100dvh; /* Mejor soporte móvil (dynamic viewport) */
     width: 100vw;
     overflow-y: scroll;
     overflow-x: hidden;
@@ -591,6 +638,7 @@ const testimonials = [
 
   .scroll-slide {
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     scroll-snap-align: start;
     scroll-snap-stop: always;

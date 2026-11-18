@@ -1,5 +1,5 @@
 import { FallbackImage } from "../ui/FallbackImage";
-import { LiveBadge } from "../ui/LiveBadge";
+
 import { buildMediaUrl } from "../../lib/constants";
 import type { B2BStore } from "../../lib/types/types";
 
@@ -26,7 +26,7 @@ export function StoreCard({ store, nicheSlug }: StoreCardProps) {
           src={logoUrl}
           alt={`Logo de ${store.store_name}`}
           fallbackName={store.store_name}
-          className="w-full h-full object-contain bg-amber-50 transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-contain bg-black transition-transform duration-500 group-hover:scale-105"
         />
         {/* Sombra gradual inferior */}
         <div 
@@ -36,7 +36,7 @@ export function StoreCard({ store, nicheSlug }: StoreCardProps) {
 
         {store.is_live && (
           <div className="absolute top-3 right-3">
-            <LiveBadge />
+            <span role="img" aria-label="En vivo" className="block h-3 w-3 rounded-full bg-red-500 motion-safe:animate-pulse" />
           </div>
         )}
       </div>
